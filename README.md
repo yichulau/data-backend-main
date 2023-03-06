@@ -60,8 +60,8 @@ npm install -g pm2
 
 Step 7:
 Run these command:
-pm2 start build/index.js --name apiserver
-pm2 start build/sync/index.js --name websocket-cron
+- pm2 start build/index.js --name apiserver
+- pm2 start build/sync/index.js --name websocket-cron
 
 Step 8:
 You can test by opening your browser and input this sample address 
