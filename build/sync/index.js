@@ -1,0 +1,20 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+const index_1 = __importDefault(require("./cron/index.js"));
+const binance_1 = __importDefault(require("./websocket/binance.js"));
+const bitcom_1 = __importDefault(require("./websocket/bitcom.js"));
+const bybit_1 = __importDefault(require("./websocket/bybit.js"));
+const deribit_1 = __importDefault(require("./websocket/deribit.js"));
+const okex_1 = __importDefault(require("./websocket/okex.js"));
+console.log("data sync init");
+(0, index_1.default)();
+(0, binance_1.default)();
+(0, bitcom_1.default)();
+(0, bybit_1.default)();
+(0, deribit_1.default)();
+(0, okex_1.default)();
