@@ -66,7 +66,7 @@ Run these command:
 Step 8:
 You can test by opening your browser and input this sample address 
 
-instance_ip = EC2/vm external IP
+- instance_ip = EC2/vm external IP
 sample:
 https://{instance_ip}/api/v1.0/btc/binance/option-chart
 
