@@ -42,11 +42,14 @@ Step 5: configure env variable
 vi ~/.bashrc
 
 - Add these lines to the bashrc file, credentials is shared privately
-export PORT="3001"
-export DB_HOST="xxxxx"
-export DB_USER="xxxxx"
-export DB_PASSWORD="xxxxx"
-export DB_SCHEMA="xxxxxxx
+
+- export PORT="3001"
+- export DB_HOST="xxxxx"
+- export DB_USER="xxxxx"
+- export DB_PASSWORD="xxxxx"
+- export DB_SCHEMA="xxxxxxx
+
+![Screenshot 2023-03-06 173316](https://user-images.githubusercontent.com/39252336/223076491-0072bd0a-a535-4dc7-9daa-e7a2dae34093.png)
 
 - Save and exit the file, then do a
 source ~/.bashrc
