@@ -12,7 +12,7 @@ cryptodashboard-backend-main
 
 **To Setup if its a Clean installation:**
 
-**Install Node and NPM: **
+**Install Node and NPM:**
 
 Step 1:
 curl -fsSL https://deb.nodesource.com/setup_17.x | sudo -E bash -
