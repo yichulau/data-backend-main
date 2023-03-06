@@ -12,7 +12,7 @@ cryptodashboard-backend-main
 
 **To Setup if its a Clean installation:**
 
-**Install Node and NPM:**
+**Install Node and NPM (skip this step if node and npm is install):**
 
 Step 1:
 curl -fsSL https://deb.nodesource.com/setup_17.x | sudo -E bash -
@@ -22,6 +22,12 @@ sudo apt update -y
 
 Step3:
 do apt install nodejs -y
+
+Step 4:
+Test by inputing this 2 command: node -v & npm -v
+
+![Screenshot 2023-03-06 180222](https://user-images.githubusercontent.com/39252336/223078585-82a8178b-399c-4da5-99d5-560c8caa6b58.png)
+
 
 **Upload backend source code to server:**
 
