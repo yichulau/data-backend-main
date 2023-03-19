@@ -167,6 +167,24 @@ declare global {
     max_buy: string;
   }
 
+  interface BitcomMarketTradeParams {
+    coinCurrencyPair: "BTC-USD" | "ETH-USD";
+  }
+
+  interface BitcomMarketTradeResult {
+    created_at: number,
+    trade_id: number,
+    instrument_id: string,
+    price: string,
+    qty: string,
+    side: "buy" | "sell",
+    sigma: string,
+    index_price: string,
+    underlying_price: string,
+    is_block_trade: boolean,
+    display_name: string;
+  }
+
   interface BybitTickerParams {
     coinCurrency: "BTC" | "ETH" | "SOL";
   }
@@ -366,6 +384,24 @@ declare global {
 
   interface OKEXOIVolumeExpiryParams {
     coinCurrency: "BTC" | "ETH";
+  }
+
+  interface OKEXBlockTradeParams {
+    beginID: string | undefined;
+  }
+
+  interface OKEXBlockTradeLeg {
+    instId: string,
+    side: "buy" | "sell",
+    sz: string,
+    px: string,
+    tradeId: string;
+  }
+
+  interface OKEXBlockTradeResult {
+    blockTdId: string,
+    legs: OKEXBlockTradeLeg[],
+    cTime: string;
   }
 
   interface IResponse extends Response { }

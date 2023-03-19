@@ -4,7 +4,8 @@ import {
   binanceSymbolCachePrefix,
   binanceSymbolCacheExpirySecs,
   bitcomInstrumentCachePrefix,
-  bitcomInstrumentCacheExpirySecs
+  bitcomInstrumentCacheExpirySecs,
+  okexLastBlockTradeIDKey
 } from "../common";
 
 const redis = new Redis();
@@ -13,7 +14,9 @@ export default {
   getBinanceSymbol,
   setBinanceSymbol,
   getBitcomInstrument,
-  setBitcomInstrument
+  setBitcomInstrument,
+  getOkexLastBlockTradeID,
+  setOkexLastBlockTradeID
 };
 
 async function getBinanceSymbol (
@@ -73,6 +76,37 @@ async function setBitcomInstrument (
       `${bitcomInstrumentCachePrefix}${obj.instrumentID}`,
       bitcomInstrumentCacheExpirySecs,
       JSON.stringify(obj)
+    );
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+}
+
+async function getOkexLastBlockTradeID (
+): Promise<string | undefined> {
+
+  try {
+    const result = await redis.get(okexLastBlockTradeIDKey);
+
+    if (!result) return undefined;
+    return result;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+async function setOkexLastBlockTradeID (
+  blockTradeID: string
+): Promise<void> {
+
+  try {
+    await redis.set(
+      okexLastBlockTradeIDKey,
+      blockTradeID
     );
   }
   catch (err) {

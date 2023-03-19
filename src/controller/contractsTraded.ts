@@ -1,9 +1,14 @@
 import {
-  getLast24HBinanceContracts,
-  getLast24HBitcomContracts,
-  getLast24HBybitContracts,
-  getLast24HDeribitContracts,
-  getLast24HOkexContracts
+  getRecentBinanceContracts,
+  countRecentBinanceContracts,
+  getRecentBitcomContracts,
+  countRecentBitcomContracts,
+  getRecentBybitContracts,
+  countRecentBybitContracts,
+  getRecentDeribitContracts,
+  countRecentDeribitContracts,
+  getRecentOkexContracts,
+  countRecentOkexContracts
 } from "@resource/contractsTraded";
 
 import logReqDuration from "helper/logReqDuration";
@@ -11,31 +16,37 @@ import logReqDuration from "helper/logReqDuration";
 import { EXCHANGE_ID } from "common";
 
 export default async function (req: IRequest, res: IResponse, next: INextFunction) {
+  let count24H = 0;
   let result24H = [];
 
-  const coinCurrencyID = req._coinCurrencyID;
+  const coinCurrencyID = <number>req._coinCurrencyID;
   const exchangeID = req._exchangeID;
 
   try {
     switch (exchangeID) {
       case EXCHANGE_ID.BINANCE:
-        result24H = await getLast24HBinanceContracts(null, <number>coinCurrencyID);
+        count24H = await countRecentBinanceContracts(null, "1day", coinCurrencyID);
+        result24H = await getRecentBinanceContracts(null, "1day", coinCurrencyID, 20);
         break;
 
       case EXCHANGE_ID.BITCOM:
-        result24H = await getLast24HBitcomContracts(null, <number>coinCurrencyID);
+        count24H = await countRecentBitcomContracts(null, "1day", coinCurrencyID);
+        result24H = await getRecentBitcomContracts(null, "1day", coinCurrencyID, 20);
         break;
 
       case EXCHANGE_ID.BYBIT:
-        result24H = await getLast24HBybitContracts(null, <number>coinCurrencyID);
+        count24H = await countRecentBybitContracts(null, "1day", coinCurrencyID);
+        result24H = await getRecentBybitContracts(null, "1day", coinCurrencyID, 20);
         break;
 
       case EXCHANGE_ID.DERIBIT:
-        result24H = await getLast24HDeribitContracts(null, <number>coinCurrencyID);
+        count24H = await countRecentDeribitContracts(null, "1day", coinCurrencyID);
+        result24H = await getRecentDeribitContracts(null, "1day", coinCurrencyID, 20);
         break;
 
       case EXCHANGE_ID.OKEX:
-        result24H = await getLast24HOkexContracts(null, <number>coinCurrencyID);
+        count24H = await countRecentOkexContracts(null, "1day", coinCurrencyID);
+        result24H = await getRecentOkexContracts(null, "1day", coinCurrencyID, 20);
         break;
     }
   }
@@ -46,8 +57,8 @@ export default async function (req: IRequest, res: IResponse, next: INextFunctio
     });
   }
 
-  res.send({ 
-    count24H: result24H.length,
+  res.send({
+    count24H,
     result24H
   });
 

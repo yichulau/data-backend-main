@@ -27,19 +27,102 @@ INSERT INTO `Exchange` (exchangeID, exchange) VALUES (3, `Bit.com`);
 INSERT INTO `Exchange` (exchangeID, exchange) VALUES (4, `Deribit`);
 INSERT INTO `Exchange` (exchangeID, exchange) VALUES (5, `OKEX`);
 
+DROP TABLE IF EXISTS `Block_Trade_Bitcom`;
+CREATE TABLE `Block_Trade_Bitcom` (
+  `ID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `coinCurrencyID` int(10) unsigned NOT NULL,
+  `blockTradeID` bigint(20) unsigned NOT NULL,
+  `instrumentID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeID` bigint(20) unsigned NOT NULL,
+  `tradeTime` timestamp NOT NULL,
+  `side` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(20,5) unsigned NOT NULL,
+  `underlyingPrice` decimal(20,5) unsigned NOT NULL,
+  `size` decimal(20,5) unsigned NOT NULL,
+  `sigma` decimal(20,5) unsigned NOT NULL,
+  `rawData` json NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `tradeID_UNIQUE` (`tradeID`),
+  KEY `BTBitcom_coinCurrencyID_fk_idx` (`coinCurrencyID`),
+  KEY `tradeTime_Idx` (`tradeTime`),
+  CONSTRAINT `BTBitcom_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `Block_Trade_Bybit`;
+CREATE TABLE `Block_Trade_Bybit` (
+  `ID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `coinCurrencyID` int(10) unsigned NOT NULL,
+  `blockTradeID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `instrumentID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeTime` timestamp NOT NULL,
+  `side` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(20,5) unsigned NOT NULL,
+  `size` decimal(20,5) unsigned NOT NULL,
+  `rawData` json NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `tradeID_UNIQUE` (`tradeID`),
+  KEY `BTByBit_coinCurrencyID_fk_idx` (`coinCurrencyID`),
+  KEY `tradeTime_idx` (`tradeTime`),
+  CONSTRAINT `BTByBit_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `Block_Trade_Deribit`;
+CREATE TABLE `Block_Trade_Deribit` (
+  `ID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `coinCurrencyID` int(10) unsigned NOT NULL,
+  `blockTradeID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `instrumentID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeTime` timestamp NOT NULL,
+  `direction` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(20,5) unsigned NOT NULL,
+  `indexPrice` decimal(20,5) unsigned NOT NULL,
+  `markPrice` decimal(20,5) unsigned NOT NULL,
+  `size` decimal(20,5) unsigned NOT NULL,
+  `tickDirection` tinyint(3) unsigned NOT NULL,
+  `rawData` json NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `tradeID_UNIQUE` (`tradeID`),
+  KEY `BTDeribit_coinCurrencyID_fk_idx` (`coinCurrencyID`),
+  KEY `tradeTime_idx` (`tradeTime`),
+  CONSTRAINT `BTDeribit_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `Block_Trade_Okex`;
+CREATE TABLE `Block_Trade_Okex` (
+  `ID` varchar(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `coinCurrencyID` int(10) unsigned NOT NULL,
+  `blockTradeID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `instrumentID` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tradeID` bigint(20) unsigned NOT NULL,
+  `tradeTime` timestamp NOT NULL,
+  `side` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(20,5) unsigned NOT NULL,
+  `size` decimal(20,5) unsigned NOT NULL,
+  `rawData` json NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `tradeID_UNIQUE` (`tradeID`),
+  KEY `BTOkex_coinCurrencyID_fk_idx` (`coinCurrencyID`),
+  KEY `tradeTime_idx` (`tradeTime`),
+  CONSTRAINT `BTOkex_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 DROP TABLE IF EXISTS `Contracts_Traded_Binance`;
 CREATE TABLE `Contracts_Traded_Binance` (
   `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `coinCurrencyID` int(10) unsigned NOT NULL,
   `instrumentID` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `tradeID` int(10) unsigned NOT NULL,
-  `tradeTime` timestamp NULL DEFAULT NULL,
+  `tradeTime` timestamp NOT NULL,
   `price` decimal(20,5) unsigned NOT NULL,
   `indexPrice` decimal(20,5) unsigned DEFAULT NULL,
   `markPrice` decimal(20,5) unsigned DEFAULT NULL,
   `quantity` int(10) unsigned NOT NULL,
   `buyerOrderID` bigint(20) unsigned NOT NULL,
   `sellerOrderID` bigint(20) unsigned NOT NULL,
+  `direction` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL, 
+  `rawData` json DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `CTBinance_coinCurrencyID_fk_idx` (`coinCurrencyID`),
   CONSTRAINT `CTBinance_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -51,12 +134,13 @@ CREATE TABLE `Contracts_Traded_Bitcom` (
   `coinCurrencyID` int(10) unsigned NOT NULL,
   `instrumentID` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `tradeID` int(10) unsigned NOT NULL,
-  `tradeTime` timestamp NULL DEFAULT NULL,
+  `tradeTime` timestamp NOT NULL,
   `price` decimal(20,5) unsigned NOT NULL,
   `indexPrice` decimal(20,5) unsigned DEFAULT NULL,
   `markPrice` decimal(20,5) unsigned DEFAULT NULL,
   `quantity` decimal(20,5) unsigned NOT NULL,
   `side` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `rawData` json DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `CTBitcom_coinCurrencyID_fk_idx` (`coinCurrencyID`),
   CONSTRAINT `CTBitcom_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -68,7 +152,7 @@ CREATE TABLE `Contracts_Traded_Bybit` (
   `coinCurrencyID` int(10) unsigned NOT NULL,
   `instrumentID` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `tradeID` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `tradeTime` timestamp NULL DEFAULT NULL,
+  `tradeTime` timestamp NOT NULL,
   `direction` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `positionQuantity` decimal(20,5) unsigned NOT NULL,
   `orderPrice` decimal(20,5) unsigned NOT NULL,
@@ -76,6 +160,7 @@ CREATE TABLE `Contracts_Traded_Bybit` (
   `markPrice` decimal(20,5) unsigned DEFAULT NULL,
   `priceChangeDirection` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `isBlockTrade` tinyint(3) unsigned NOT NULL,
+  `rawData` json DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `CTBybit_coinCurrencyID_fk_idx` (`coinCurrencyID`),
   CONSTRAINT `CTBybit_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -87,7 +172,7 @@ CREATE TABLE `Contracts_Traded_Deribit` (
   `coinCurrencyID` int(10) unsigned NOT NULL,
   `instrumentID` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `tradeID` int(10) unsigned NOT NULL,
-  `tradeTime` timestamp NULL DEFAULT NULL,
+  `tradeTime` timestamp NOT NULL,
   `tickDirection` int(10) unsigned NOT NULL,
   `price` decimal(20,5) unsigned NOT NULL,
   `markPrice` decimal(20,5) unsigned NOT NULL,
@@ -96,6 +181,7 @@ CREATE TABLE `Contracts_Traded_Deribit` (
   `indexPrice` decimal(20,5) unsigned NOT NULL,
   `direction` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `amount` decimal(20,5) unsigned NOT NULL,
+  `rawData` json DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `CTDeribit_coinCurrencyID_fk_idx` (`coinCurrencyID`),
   CONSTRAINT `CTDeribit_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION
@@ -106,7 +192,7 @@ CREATE TABLE `Contracts_Traded_Okex` (
   `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `coinCurrencyID` int(10) unsigned NOT NULL,
   `tradeID` int(10) unsigned NOT NULL,
-  `tradeTime` timestamp NULL DEFAULT NULL,
+  `tradeTime` timestamp NOT NULL,
   `instrumentID` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `instrumentFamily` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `price` decimal(20,5) unsigned NOT NULL,
@@ -117,6 +203,7 @@ CREATE TABLE `Contracts_Traded_Okex` (
   `forwardPrice` decimal(20,12) unsigned NOT NULL,
   `indexPrice` decimal(20,5) unsigned NOT NULL,
   `markPrice` decimal(20,16) unsigned NOT NULL,
+  `rawData` json DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `CTBitcom_coinCurrencyID_fk_idx` (`coinCurrencyID`),
   CONSTRAINT `CTOkex_coinCurrencyID_fk` FOREIGN KEY (`coinCurrencyID`) REFERENCES `CoinCurrency` (`coinCurrencyID`) ON DELETE NO ACTION ON UPDATE NO ACTION

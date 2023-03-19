@@ -1,5 +1,8 @@
 import { WebSocket } from "ws";
+import { eachSeries } from "async";
+import { v4 as uuidV4 } from "uuid";
 
+import { insertBybitBlockTrade } from "@resource/blockTrade";
 import { insertBybitContract } from "@resource/contractsTraded";
 
 import {
@@ -15,10 +18,13 @@ type IndexPriceData = {
 type LatestIndexPriceObj = {
   BTC: IndexPriceData[],
   ETH: IndexPriceData[],
-  SOL: IndexPriceData[]
+  SOL: IndexPriceData[];
 };
 
-let bybitSocket: WebSocket;
+let bybitOptionSocket: WebSocket;
+let bybitSpotSocket: WebSocket;
+let bybitInverseSocket: WebSocket;
+let bybitLinearSocket: WebSocket;
 
 let latestIndexPrice: LatestIndexPriceObj = {
   BTC: [],
@@ -29,7 +35,14 @@ let latestIndexPrice: LatestIndexPriceObj = {
 const INTERVAL_MS = 19000;
 
 export default function startBybitWS () {
-  bybitSocket = new WebSocket(bybit.wsURL);
+  _contractWS();
+  _spotWS();
+  _inverseWS();
+  _linearWS();
+}
+
+function _contractWS () {
+  bybitOptionSocket = new WebSocket(bybit.optionWsURL);
 
   const openMsg = {
     op: "subscribe",
@@ -43,14 +56,14 @@ export default function startBybitWS () {
     ]
   };
 
-  bybitSocket
+  bybitOptionSocket
     .on("open", () => {
-      console.log("bybit websocket connected");
-      bybitSocket.send(JSON.stringify(openMsg));
+      console.log("bybit option websocket connected");
+      bybitOptionSocket.send(JSON.stringify(openMsg));
 
       setInterval(() => {
-        if (bybitSocket.readyState === WebSocket.OPEN) {
-          bybitSocket.send('{"op": "ping"}');
+        if (bybitOptionSocket.readyState === WebSocket.OPEN) {
+          bybitOptionSocket.send('{"op": "ping"}');
         }
       }, INTERVAL_MS);
     })
@@ -64,15 +77,133 @@ export default function startBybitWS () {
         _updateLatestIndexPrice(json.data, topic);
       }
       else if (topic.startsWith("publicTrade.")) {
-        await _insertContract(json.data[0], topic);
+        await _insert(json, true);
       }
     })
-    .on("error", (err) => {
-      console.error(err);
-    })
+    .on("error", console.error)
     .on("close", (code, reason) => {
-      console.log(`bybit websocket closing | code: ${code} reason: ${reason.toString()}`);
-      startBybitWS();
+      console.log(`bybit option websocket closing | code: ${code} reason: ${reason.toString()}`);
+      _contractWS();
+    });
+}
+
+function _spotWS () {
+  bybitSpotSocket = new WebSocket(bybit.spotWsURL);
+
+  const openMsg = {
+    op: "subscribe",
+    args: [
+      "publicTrade.BTCUSDT",
+      "publicTrade.ETHUSDT",
+      "publicTrade.SOLUSDT"
+    ]
+  };
+
+  bybitSpotSocket
+    .on("open", () => {
+      console.log("bybit spot socket connected");
+      bybitSpotSocket.send(JSON.stringify(openMsg));
+
+      setInterval(() => {
+        if (bybitSpotSocket.readyState === WebSocket.OPEN) {
+          bybitSpotSocket.send('{"op": "ping"}');
+        }
+      }, INTERVAL_MS);
+    })
+    .on("message", async (data) => {
+      const json = JSON.parse(data.toString());
+      const topic = json.topic;
+
+      if (typeof json.topic !== "string") return;
+
+      if (topic.startsWith("publicTrade.")) {
+        await _insert(json, false);
+      }
+    })
+    .on("error", console.error)
+    .on("close", (code, reason) => {
+      console.log(`bybit spot websocket closing | code: ${code} reason: ${reason.toString()}`);
+      _spotWS();
+    });
+}
+
+function _inverseWS () {
+  bybitInverseSocket = new WebSocket(bybit.inverseWsURL);
+
+  const openMsg = {
+    op: "subscribe",
+    args: [
+      "publicTrade.BTCUSD",
+      "publicTrade.ETHUSD",
+      "publicTrade.SOLUSD"
+    ]
+  };
+
+  bybitInverseSocket
+    .on("open", () => {
+      console.log("bybit inverse socket connected");
+      bybitInverseSocket.send(JSON.stringify(openMsg));
+
+      setInterval(() => {
+        if (bybitInverseSocket.readyState === WebSocket.OPEN) {
+          bybitInverseSocket.send('{"op": "ping"}');
+        }
+      }, INTERVAL_MS);
+    })
+    .on("message", async (data) => {
+      const json = JSON.parse(data.toString());
+      const topic = json.topic;
+
+      if (typeof json.topic !== "string") return;
+
+      if (topic.startsWith("publicTrade.")) {
+        await _insert(json, false);
+      }
+    })
+    .on("error", console.error)
+    .on("close", (code, reason) => {
+      console.log(`bybit inverse websocket closing | code: ${code} reason: ${reason.toString()}`);
+      _inverseWS();
+    });
+}
+
+function _linearWS () {
+  bybitLinearSocket = new WebSocket(bybit.linearWsURL);
+
+  const openMsg = {
+    op: "subscribe",
+    args: [
+      "publicTrade.BTCUSDT",
+      "publicTrade.ETHUSDT",
+      "publicTrade.SOLUSDT"
+    ]
+  };
+
+  bybitLinearSocket
+    .on("open", () => {
+      console.log("bybit linear socket connected");
+      bybitLinearSocket.send(JSON.stringify(openMsg));
+
+      setInterval(() => {
+        if (bybitLinearSocket.readyState === WebSocket.OPEN) {
+          bybitLinearSocket.send('{"op": "ping"}');
+        }
+      }, INTERVAL_MS);
+    })
+    .on("message", async (data) => {
+      const json = JSON.parse(data.toString());
+      const topic = json.topic;
+
+      if (typeof json.topic !== "string") return;
+
+      if (topic.startsWith("publicTrade.")) {
+        await _insert(json, false);
+      }
+    })
+    .on("error", console.error)
+    .on("close", (code, reason) => {
+      console.log(`bybit linear websocket closing | code: ${code} reason: ${reason.toString()}`);
+      _linearWS();
     });
 }
 
@@ -96,40 +227,69 @@ function _updateLatestIndexPrice (data: any, topic: string) {
   return;
 }
 
-async function _insertContract (item: any, topic: string) {
-  const coinCurrency = <"BTC" | "ETH" | "SOL">topic.slice(-3);
-  
+async function _insert (json: any, isForOptionWs: boolean) {
+  const topic = json.topic;
+  const coinCurrency = <"BTC" | "ETH" | "SOL">topic.split(".")[1].substring(0, 3);
   const coinCurrencyID = CURRENCY_ID[coinCurrency];
-  
-  const ipData = latestIndexPrice[coinCurrency].find(i => {
-    return i.instrumentID === item.s;
-  });
 
-  try {
-    if (!ipData) {
-      console.log(`bybit index price not found for ${item.s}`);
-    }
-
-    await insertBybitContract(
-      null,
-      coinCurrencyID,
-      item.s,
-      item.i,
-      Math.floor(item.T / 1000),
-      item.S,
-      item.v,
-      item.p,
-      ipData?.indexPrice || null,
-      item.L,
-      item.BT
-    );
-
-    console.log(`inserted bybit contract ${topic} | instrumentID: ${item.s} tradeID ${item.i}`);
-  }
-  catch (err) {
-    console.error("bybit insert contract error");
-    console.error(err);
-  }
+  await eachSeries(json.data, _iterateInsert);
 
   return;
+
+  async function _iterateInsert (item: any) {
+    try {
+      if (isForOptionWs && !item.BT) {
+        // only insert non block trade options
+        const ipData = latestIndexPrice[coinCurrency].find(i => {
+          return i.instrumentID === item.s;
+        });
+
+        await insertBybitContract(
+          null,
+          coinCurrencyID,
+          item.s,
+          item.i,
+          Math.floor(item.T / 1000),
+          item.S,
+          item.v,
+          item.p,
+          ipData?.indexPrice || null,
+          item.L,
+          item.BT,
+          JSON.stringify(json)
+        );
+
+        console.log(`inserted bybit contract ${topic} | instrumentID: ${item.s} tradeID ${item.i}`);
+      }
+      else if (item.BT) {
+        await insertBybitBlockTrade(
+          null,
+          uuidV4(),
+          coinCurrencyID,
+          item.i,
+          item.s,
+          item.i,
+          Math.floor(item.T / 1000),
+          item.S,
+          item.p,
+          item.v,
+          JSON.stringify(json)
+        );
+
+        console.log(`inserted bybit contract ${topic} | instrumentID: ${item.s} tradeID ${item.i}`);
+      }
+    }
+    catch (err) {
+      if (isForOptionWs && !item.BT) {
+        console.error("bybit contract insert error");
+      }
+      else {
+        console.error("bybit block trade insert error");
+      }
+
+      console.error(err);
+    }
+
+    return;
+  }
 }

@@ -3,11 +3,11 @@ import DBConnection from "@database/conn";
 import { insert } from "@resource/volumePremium";
 
 import {
-  getLast24HBinanceContracts,
-  getLast24HBitcomContracts,
-  getLast24HBybitContracts,
-  getLast24HDeribitContracts,
-  getLast24HOkexContracts
+  getRecentBinanceContracts,
+  getRecentBitcomContracts,
+  getRecentBybitContracts,
+  getRecentDeribitContracts,
+  getRecentOkexContracts
 } from "@resource/contractsTraded";
 
 import {
@@ -100,23 +100,23 @@ async function _getLast24HContracts (
   try {
     switch (exchangeID) {
       case EXCHANGE_ID.BINANCE:
-        result = await getLast24HBinanceContracts(conn);
+        result = await getRecentBinanceContracts(conn, "1day");
         break;
 
       case EXCHANGE_ID.BITCOM:
-        result = await getLast24HBitcomContracts(conn);
+        result = await getRecentBitcomContracts(conn, "1day");
         break;
 
       case EXCHANGE_ID.BYBIT:
-        result = await getLast24HBybitContracts(conn);
+        result = await getRecentBybitContracts(conn, "1day");
         break;
 
       case EXCHANGE_ID.DERIBIT:
-        result = await getLast24HDeribitContracts(conn);
+        result = await getRecentDeribitContracts(conn, "1day");
         break;
 
       case EXCHANGE_ID.OKEX:
-        result = await getLast24HOkexContracts(conn);
+        result = await getRecentOkexContracts(conn, "1day");
         break;
     }
   }

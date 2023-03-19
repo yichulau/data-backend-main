@@ -20,6 +20,8 @@ export const binanceSymbolCacheExpirySecs = 43200; // 12 hours
 export const bitcomInstrumentCachePrefix = "bitcom-inst:";
 export const bitcomInstrumentCacheExpirySecs = 4320; // 12 hours
 
+export const okexLastBlockTradeIDKey = "okex-lastrecvblocktradeid";
+
 export const binance = {
   wsURL: "wss://nbstream.binance.com/eoptions/stream",
   indexPriceURL: "https://eapi.binance.com/eapi/v1/index",
@@ -30,14 +32,18 @@ export const binance = {
 };
 
 export const bybit = {
-  wsURL: "wss://stream.bytick.com/option/usdc/public/v3",
+  optionWsURL: "wss://stream.bytick.com/option/usdc/public/v3",
+  spotWsURL: "wss://stream.bybit.com/v5/public/spot",
+  linearWsURL: "wss://stream.bybit.com/v5/public/linear",
+  inverseWsURL: "wss://stream.bybit.com/v5/public/inverse",
   tickerURL: "https://api.bytick.com/v5/market/tickers"
 };
 
 export const bitcom = {
   wsURL: "wss://ws.bit.com",
   instrumentURL: "https://api.bit.com/v1/instruments",
-  tickerURL: "https://api.bit.com/v1/tickers"
+  tickerURL: "https://api.bit.com/v1/tickers",
+  marketTradeURL: "https://api.bit.com/linear/v1/market/trades"
 };
 
 export const deribit = {
@@ -55,7 +61,8 @@ export const okex = {
   optSummaryURL: "https://okx.com/api/v5/public/opt-summary",
   markPriceURL: "https://okx.com/api/v5/public/mark-price",
   oiAndVolumeStrikeURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-strike",
-  oiAndVolumeExpiryURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-expiry"
+  oiAndVolumeExpiryURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-expiry",
+  blockTradeURL: "https://www.okx.com/api/v5/rfq/public-trades"
 };
 
 export const dbPoolConfig = {
@@ -67,5 +74,6 @@ export const dbPoolConfig = {
   connectionLimit: 10,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  supportBigNumbers: true
 };

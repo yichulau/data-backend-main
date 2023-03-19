@@ -1,9 +1,11 @@
 import db from "@database/db";
 import DBConnection from "@database/conn";
 
-export async function getLast24HBinanceContracts (
+export async function getRecentBinanceContracts (
   conn: DBConnection | null,
-  coinCurrencyID?: number
+  interval: "1day" | "1second",
+  coinCurrencyID?: number,
+  limit?: number
 ): Promise<any[]> {
 
   let result;
@@ -17,7 +19,8 @@ export async function getLast24HBinanceContracts (
       UNIX_TIMESTAMP(tradeTime) AS tradeTime,
       price,
       indexPrice,
-      quantity
+      quantity,
+      direction
     FROM
       Contracts_Traded_Binance
     WHERE `;
@@ -29,7 +32,17 @@ export async function getLast24HBinanceContracts (
     data.push(coinCurrencyID);
   }
 
-  query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  if (limit) {
+    query += "ORDER BY tradeTime DESC LIMIT ?";
+    data.push(limit);
+  }
 
   try {
     if (conn) {
@@ -46,9 +59,55 @@ export async function getLast24HBinanceContracts (
   }
 }
 
-export async function getLast24HBitcomContracts (
+export async function countRecentBinanceContracts (
   conn: DBConnection | null,
+  interval: "1day" | "1second",
   coinCurrencyID?: number
+): Promise<number> {
+
+  let result;
+
+  let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Binance
+    WHERE `;
+
+  let data = [];
+
+  if (coinCurrencyID) {
+    query += "coinCurrencyID = ? AND ";
+    data.push(coinCurrencyID);
+  }
+
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  try {
+    if (conn) {
+      result = await conn.query(query, data);
+    }
+    else {
+      result = await db.query(query, data);
+    }
+
+    return result[0][0].count;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+export async function getRecentBitcomContracts (
+  conn: DBConnection | null,
+  interval: "1day" | "1second",
+  coinCurrencyID?: number,
+  limit?: number
 ): Promise<any[]> {
 
   let result;
@@ -75,7 +134,17 @@ export async function getLast24HBitcomContracts (
     data.push(coinCurrencyID);
   }
 
-  query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  if (limit) {
+    query += "ORDER BY tradeTime DESC LIMIT ?";
+    data.push(limit);
+  }
 
   try {
     if (conn) {
@@ -92,9 +161,55 @@ export async function getLast24HBitcomContracts (
   }
 }
 
-export async function getLast24HBybitContracts (
+export async function countRecentBitcomContracts (
   conn: DBConnection | null,
+  interval: "1day" | "1second",
   coinCurrencyID?: number
+): Promise<number> {
+
+  let result;
+
+  let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Bitcom
+    WHERE `;
+
+  let data = [];
+
+  if (coinCurrencyID) {
+    query += "coinCurrencyID = ? AND ";
+    data.push(coinCurrencyID);
+  }
+
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  try {
+    if (conn) {
+      result = await conn.query(query, data);
+    }
+    else {
+      result = await db.query(query, data);
+    }
+
+    return result[0][0].count;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+export async function getRecentBybitContracts (
+  conn: DBConnection | null,
+  interval: "1day" | "1second",
+  coinCurrencyID?: number,
+  limit?: number
 ): Promise<any[]> {
 
   let result;
@@ -123,7 +238,17 @@ export async function getLast24HBybitContracts (
     data.push(coinCurrencyID);
   }
 
-  query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  if (limit) {
+    query += "ORDER BY tradeTime DESC LIMIT ?";
+    data.push(limit);
+  }
 
   try {
     if (conn) {
@@ -140,9 +265,55 @@ export async function getLast24HBybitContracts (
   }
 }
 
-export async function getLast24HDeribitContracts (
+export async function countRecentBybitContracts (
   conn: DBConnection | null,
+  interval: "1day" | "1second",
   coinCurrencyID?: number
+): Promise<number> {
+
+  let result;
+
+  let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Bybit
+    WHERE `;
+
+  let data = [];
+
+  if (coinCurrencyID) {
+    query += "coinCurrencyID = ? AND ";
+    data.push(coinCurrencyID);
+  }
+
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  try {
+    if (conn) {
+      result = await conn.query(query, data);
+    }
+    else {
+      result = await db.query(query, data);
+    }
+
+    return result[0][0].count;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+export async function getRecentDeribitContracts (
+  conn: DBConnection | null,
+  interval: "1day" | "1second",
+  coinCurrencyID?: number,
+  limit?: number
 ): Promise<any[]> {
 
   let result;
@@ -171,7 +342,17 @@ export async function getLast24HDeribitContracts (
     data.push(coinCurrencyID);
   }
 
-  query += "tradeTime >= NOW() - INTERVAL 1 DAY";
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  if (limit) {
+    query += "ORDER BY tradeTime DESC LIMIT ?";
+    data.push(limit);
+  }
 
   try {
     if (conn) {
@@ -188,9 +369,55 @@ export async function getLast24HDeribitContracts (
   }
 }
 
-export async function getLast24HOkexContracts (
+export async function countRecentDeribitContracts (
   conn: DBConnection | null,
+  interval: "1day" | "1second",
   coinCurrencyID?: number
+): Promise<number> {
+
+  let result;
+
+  let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Deribit
+    WHERE `;
+
+  let data = [];
+
+  if (coinCurrencyID) {
+    query += "coinCurrencyID = ? AND ";
+    data.push(coinCurrencyID);
+  }
+
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  try {
+    if (conn) {
+      result = await conn.query(query, data);
+    }
+    else {
+      result = await db.query(query, data);
+    }
+
+    return result[0][0].count;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+export async function getRecentOkexContracts (
+  conn: DBConnection | null,
+  interval: "1day" | "1second",
+  coinCurrencyID?: number,
+  limit?: number
 ): Promise<any[]> {
 
   let result;
@@ -217,7 +444,17 @@ export async function getLast24HOkexContracts (
     data.push(coinCurrencyID);
   }
 
-  query += "tradeTime >= NOW() - INTERVAL 1 DAY";
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  if (limit) {
+    query += "ORDER BY tradeTime DESC LIMIT ?";
+    data.push(limit);
+  }
 
   try {
     if (conn) {
@@ -234,6 +471,50 @@ export async function getLast24HOkexContracts (
   }
 }
 
+export async function countRecentOkexContracts (
+  conn: DBConnection | null,
+  interval: "1day" | "1second",
+  coinCurrencyID?: number
+): Promise<number> {
+
+  let result;
+
+  let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Okex
+    WHERE `;
+
+  let data = [];
+
+  if (coinCurrencyID) {
+    query += "coinCurrencyID = ? AND ";
+    data.push(coinCurrencyID);
+  }
+
+  if (interval === "1day") {
+    query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+  }
+  else {
+    query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+  }
+
+  try {
+    if (conn) {
+      result = await conn.query(query, data);
+    }
+    else {
+      result = await db.query(query, data);
+    }
+
+    return result[0][0].count;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
 export async function insertBinanceContract (
   conn: DBConnection | null,
   coinCurrencyID: number,
@@ -244,16 +525,20 @@ export async function insertBinanceContract (
   indexPrice: number,
   quantity: number,
   buyerOrderID: number,
-  sellerOrderID: number
+  sellerOrderID: number,
+  direction: "buy" | "sell",
+  rawData: string
 ): Promise<void> {
 
   const query = `
-    INSERT INTO Contracts_Traded_Binance
-      (coinCurrencyID, instrumentID, tradeID, tradeTime, price,
-      indexPrice, quantity, buyerOrderID, sellerOrderID)
+    INSERT IGNORE INTO Contracts_Traded_Binance
+      (coinCurrencyID, instrumentID, tradeID, tradeTime,
+      price, indexPrice, quantity, buyerOrderID,
+      sellerOrderID, direction, rawData)
     VALUES
-      (?, ?, ?, FROM_UNIXTIME(?), ?,
-      ?, ?, ?, ?);
+      (?, ?, ?, FROM_UNIXTIME(?),
+      ?, ?, ?, ?,
+      ?, ?, ?);
   `;
 
   const data = [
@@ -265,7 +550,9 @@ export async function insertBinanceContract (
     indexPrice,
     quantity,
     buyerOrderID,
-    sellerOrderID
+    sellerOrderID,
+    direction,
+    rawData
   ];
 
   try {
@@ -292,16 +579,17 @@ export async function insertBitcomContract (
   price: number,
   indexPrice: number,
   quantity: number,
-  side: "buy" | "sell"
+  side: "buy" | "sell",
+  rawData: string
 ): Promise<void> {
 
   const query = `
-    INSERT INTO Contracts_Traded_Bitcom
+    INSERT IGNORE INTO Contracts_Traded_Bitcom
       (coinCurrencyID, instrumentID, tradeID, tradeTime,
-      price, indexPrice, quantity, side)
+      price, indexPrice, quantity, side, rawData)
     VALUES
       (?, ?, FROM_UNIXTIME(?),
-      ?, ?, ?, ?);
+      ?, ?, ?, ?, ?);
   `;
 
   const data = [
@@ -312,7 +600,8 @@ export async function insertBitcomContract (
     price,
     indexPrice,
     quantity,
-    side
+    side,
+    rawData
   ];
 
   try {
@@ -341,18 +630,19 @@ export async function insertBybitContract (
   orderPrice: number,
   indexPrice: number | null,
   priceChangeDirection: string,
-  isBlockTrade: boolean
+  isBlockTrade: boolean,
+  rawData: string
 ): Promise<void> {
 
   const query = `
-    INSERT INTO Contracts_Traded_Bybit
+    INSERT IGNORE INTO Contracts_Traded_Bybit
       (coinCurrencyID, instrumentID, tradeID, tradeTime,
       direction, positionQuantity, orderPrice, indexPrice,
-      priceChangeDirection, isBlockTrade)
+      priceChangeDirection, isBlockTrade, rawData)
     VALUES
       (?, ?, ?, FROM_UNIXTIME(?),
       ?, ?, ?, ?,
-      ?, ?)
+      ?, ?, ?)
   `;
 
   const data = [
@@ -365,7 +655,8 @@ export async function insertBybitContract (
     orderPrice,
     indexPrice,
     priceChangeDirection,
-    isBlockTrade
+    isBlockTrade,
+    rawData
   ];
 
   try {
@@ -395,16 +686,19 @@ export async function insertDeribitContract (
   instrumentName: string,
   indexPrice: number,
   direction: "buy" | "sell",
-  amount: number
+  amount: number,
+  rawData: string
 ): Promise<void> {
 
   const query = `
-    INSERT INTO Contracts_Traded_Deribit
-      (coinCurrencyID, tradeID, tradeTime, tickDirection, price,
-      markPrice, iv, instrumentName, indexPrice, direction, amount)
+    INSERT IGNORE INTO Contracts_Traded_Deribit
+      (coinCurrencyID, tradeID, tradeTime, tickDirection,
+      price, markPrice, iv, instrumentName, indexPrice,
+      direction, amount, rawData)
     VALUES
-      (?, ?, FROM_UNIXTIME(?), ?, ?,
-      ?, ?, ?, ?, ?, ?);
+      (?, ?, FROM_UNIXTIME(?), ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?);
   `;
 
   const data = [
@@ -418,7 +712,8 @@ export async function insertDeribitContract (
     instrumentName,
     indexPrice,
     direction,
-    amount
+    amount,
+    rawData
   ];
 
   try {
@@ -450,18 +745,19 @@ export async function insertOkexContract (
   fillVol: number,
   forwardPrice: number,
   indexPrice: number,
-  markPrice: number
+  markPrice: number,
+  rawData: string
 ): Promise<void> {
 
   const query = `
-    INSERT INTO Contracts_Traded_Okex
+    INSERT IGNORE INTO Contracts_Traded_Okex
       (coinCurrencyID, tradeID, tradeTime, instrumentID,
       instrumentFamily, price, quantity, side, optionType,
-      fillVol, forwardPrice, indexPrice, markPrice)
+      fillVol, forwardPrice, indexPrice, markPrice, rawData)
     VALUES
       (?, ?, FROM_UNIXTIME(?), ?,
       ?, ?, ?, ?, ?,
-      ?, ?, ?, ?);
+      ?, ?, ?, ?, ?);
   `;
 
   const data = [
@@ -477,7 +773,8 @@ export async function insertOkexContract (
     fillVol,
     forwardPrice,
     indexPrice,
-    markPrice
+    markPrice,
+    rawData
   ];
 
   try {

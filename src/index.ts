@@ -1,31 +1,27 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import express from "express";
-import cors from "cors";
+import cluster from "cluster";
+import { cpus } from "os";
 
-import requestLog from "@middleware/requestLog";
-import apiRouter from "@router/index";
-import errHandler from "@middleware/errHandler";
+if (cluster.isPrimary) {
+  const cpuCount = cpus().length;
 
-const port = Number(process.env.PORT);
-const app = express();
+  console.log(`Number of CPUs: ${cpuCount}`);
+  console.log(`Master process ${process.pid} is running`);
 
-app.disable("x-powered-by");
-app.use(cors());
-app.use(express.json());
+  for (let i = 0; i < cpuCount; i++) {
+    cluster.fork();
+  }
 
-app.use(requestLog);
-
-app.use("/api", apiRouter);
-
-app.use(errHandler);
-
-app.use("*", (req: IRequest, res: IResponse) => {
-  console.log(`${req._urlLog} -- INVALID URL`);
-  res.status(404).send();
-});
-
-app.listen(port, () => {
-  console.log(`API listening on port ${port}`);
-});
+  cluster.on("exit", (worker) => {
+    console.log(`Worker ${worker.process.pid} died, starting a new worker`);
+    cluster.fork();
+  });
+}
+else {
+  import("./app")
+    .then(() => {
+      console.log(`Worker ${process.pid} started`);;
+    });
+}

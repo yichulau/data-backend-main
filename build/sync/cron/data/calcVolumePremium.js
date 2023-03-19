@@ -42,19 +42,19 @@ async function _getLast24HContracts(conn, exchangeID) {
     try {
         switch (exchangeID) {
             case common_1.EXCHANGE_ID.BINANCE:
-                result = await (0, contractsTraded_1.getLast24HBinanceContracts)(conn);
+                result = await (0, contractsTraded_1.getRecentBinanceContracts)(conn, "1day");
                 break;
             case common_1.EXCHANGE_ID.BITCOM:
-                result = await (0, contractsTraded_1.getLast24HBitcomContracts)(conn);
+                result = await (0, contractsTraded_1.getRecentBitcomContracts)(conn, "1day");
                 break;
             case common_1.EXCHANGE_ID.BYBIT:
-                result = await (0, contractsTraded_1.getLast24HBybitContracts)(conn);
+                result = await (0, contractsTraded_1.getRecentBybitContracts)(conn, "1day");
                 break;
             case common_1.EXCHANGE_ID.DERIBIT:
-                result = await (0, contractsTraded_1.getLast24HDeribitContracts)(conn);
+                result = await (0, contractsTraded_1.getRecentDeribitContracts)(conn, "1day");
                 break;
             case common_1.EXCHANGE_ID.OKEX:
-                result = await (0, contractsTraded_1.getLast24HOkexContracts)(conn);
+                result = await (0, contractsTraded_1.getRecentOkexContracts)(conn, "1day");
                 break;
         }
     }

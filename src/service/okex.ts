@@ -38,6 +38,10 @@ export async function getOpenInterest (
       }
     });
 
+    if (data.code !== "0") {
+      throw data;
+    }
+
     return data.data;
   }
   catch (err) {
@@ -58,6 +62,10 @@ export async function getTicker (
       }
     });
 
+    if (data.code !== "0") {
+      throw data;
+    }
+
     return data.data;
   }
   catch (err) {
@@ -76,6 +84,10 @@ export async function getOptionSummary (
         instFamily: params.coinCurrencyPair
       }
     });
+
+    if (data.code !== "0") {
+      throw data;
+    }
 
     return data.data;
   }
@@ -96,6 +108,10 @@ export async function getMarkPrice (
         instId: params.instrumentID
       }
     });
+
+    if (data.code !== "0") {
+      throw data;
+    }
 
     return Number(data.data[0].markPx);
   }
@@ -118,6 +134,10 @@ export async function getOIAndVolumeStrike (
       }
     });
 
+    if (data.code !== "0") {
+      throw data;
+    }
+
     return data.data;
   }
   catch (err) {
@@ -137,6 +157,34 @@ export async function getOIAndVolumeExpiry (
         period: "1D"
       }
     });
+
+    if (data.code !== "0") {
+      throw data;
+    }
+
+    return data.data;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+export async function getBlockTrades (
+  params: OKEXBlockTradeParams
+): Promise<OKEXBlockTradeResult[]> {
+  try {
+    const { data } = await axios({
+      method: "get",
+      url: okex.blockTradeURL,
+      params: {
+        beginId: params.beginID,
+        limit: 100
+      }
+    });
+
+    if (data.code !== "0") {
+      throw data;
+    }
 
     return data.data;
   }

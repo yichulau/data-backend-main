@@ -49,3 +49,29 @@ export async function getTicker (
     throw err;
   }
 }
+
+export async function getMarketTrades (
+  params: BitcomMarketTradeParams
+): Promise<BitcomMarketTradeResult[]> {
+  try {
+    const { data } = await axios({
+      method: "get",
+      url: bitcom.marketTradeURL,
+      params: {
+        currency: "USD",
+        pair: params.coinCurrencyPair,
+        count: 500,
+        start_time: 0
+      }
+    });
+
+    if (data.code !== 0) {
+      throw data;
+    }
+
+    return data.data;
+  }
+  catch (err) {
+    throw err;
+  }
+}

@@ -53,7 +53,7 @@ function startBitcomWS() {
             _updateLatestIndexPrice(json.data.index_name, Number(json.data.index_price));
         }
         else if (topic === "market_trade") {
-            await _insertContract(json.data[0], json.data[0].pair);
+            await _insertContract(json);
         }
     })
         .on("error", (err) => {
@@ -70,12 +70,14 @@ function _updateLatestIndexPrice(indexName, indexPrice) {
     latestIndexPrice[coinCurrency] = indexPrice;
     return;
 }
-async function _insertContract(item, pair) {
+async function _insertContract(json) {
+    const item = json.data[0];
+    const pair = item.pair;
     const coinCurrency = pair.substring(0, 3);
     const coinCurrencyID = common_1.CURRENCY_ID[coinCurrency];
     const indexPrice = latestIndexPrice[coinCurrency];
     try {
-        await (0, contractsTraded_1.insertBitcomContract)(null, coinCurrencyID, item.instrument_id, item.trade_id, Math.floor(item.created_at / 1000), item.price, indexPrice, item.qty, item.side);
+        await (0, contractsTraded_1.insertBitcomContract)(null, coinCurrencyID, item.instrument_id, item.trade_id, Math.floor(item.created_at / 1000), item.price, indexPrice, item.qty, item.side, JSON.stringify(json));
         console.log(`inserted bit.com contract ${pair} | instrumentID: ${item.instrument_id} tradeID ${item.trade_id}`);
     }
     catch (err) {

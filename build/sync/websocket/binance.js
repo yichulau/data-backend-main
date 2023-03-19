@@ -37,7 +37,7 @@ function startBinanceWS() {
             _updateLatestIndexPrice(json.data, topic);
         }
         else if (topic.includes("@trade")) {
-            await _insertContract(json.data, topic);
+            await _insertContract(json);
         }
     })
         .on("error", (err) => {
@@ -54,12 +54,14 @@ function _updateLatestIndexPrice(data, topic) {
     latestIndexPrice[coinCurrency] = Number(data.p);
     return;
 }
-async function _insertContract(item, topic) {
+async function _insertContract(json) {
+    const item = json.data;
+    const topic = json.stream;
     const coinCurrency = topic.substring(0, 3);
     const coinCurrencyID = common_1.CURRENCY_ID[coinCurrency];
     const indexPrice = latestIndexPrice[coinCurrency];
     try {
-        await (0, contractsTraded_1.insertBinanceContract)(null, coinCurrencyID, item.s, item.t, Math.floor(item.T / 1000), item.p, indexPrice, item.q, item.b, item.a);
+        await (0, contractsTraded_1.insertBinanceContract)(null, coinCurrencyID, item.s, item.t, Math.floor(item.T / 1000), item.p, indexPrice, item.q, item.b, item.a, item.S === 1 ? "buy" : "sell", JSON.stringify(json));
         console.log(`inserted binance contract ${topic} | instrumentID: ${item.s} tradeID: ${item.t}`);
     }
     catch (err) {

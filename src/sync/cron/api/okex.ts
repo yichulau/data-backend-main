@@ -1,15 +1,19 @@
 import moment from "moment";
 import { eachSeries } from "async";
+import { v4 as uuidV4 } from "uuid";
 
+import cache from "@cache/cache";
 import DBConnection from "@database/conn";
 
 import { insert as insertVolumeNotional } from "@resource/volumeNotional";
 import { insert as insertOpenInterest } from "@resource/openInterest";
 import { insert as insertExpiryData } from "@resource/expiry";
+import { insertOkexBlockTrade } from "@resource/blockTrade";
 
 import {
   getOpenInterest,
-  getTicker
+  getTicker,
+  getBlockTrades
 } from "@service/okex";
 
 import {
@@ -18,7 +22,7 @@ import {
   DATEFORMAT
 } from "../../../common";
 
-type OkexSyncValue = {
+type OkexOIAndNVValue = {
   coinCurrencyID: number,
   callOrPut: "C" | "P",
   symbol: string,
@@ -26,6 +30,17 @@ type OkexSyncValue = {
   strike: number,
   tradingVolume: number,
   openInterest?: number;
+};
+
+type OkexBlockTradeValue = {
+  blockTradeID: string,
+  instrumentID: string,
+  tradeID: bigint,
+  tradeTime: number,
+  side: "buy" | "sell",
+  price: number,
+  size: number,
+  rawData: string
 };
 
 export default async function (
@@ -37,30 +52,36 @@ export default async function (
 
   const startTime = Date.now();
 
-  let valueArr: OkexSyncValue[] = [];
+  let oiAndNvValueArr: OkexOIAndNVValue[] = [];
+  let btValueArr: OkexBlockTradeValue[] = [];
 
   try {
     const btcTickers = await _getTickers("BTC-USD");
     const ethTickers = await _getTickers("ETH-USD");
     const allTickers = [...btcTickers, ...ethTickers];
 
-    _assignValues(allTickers, valueArr, btcSpotValue, ethSpotValue);
-    await _assignOI(valueArr, btcSpotValue, ethSpotValue);
+    _assignNVValues(allTickers, oiAndNvValueArr, btcSpotValue, ethSpotValue);
+    await _assignOI(oiAndNvValueArr, btcSpotValue, ethSpotValue);
 
-    await _insertExpiryData(conn, valueArr, syncTime);
+    await _insertExpiryData(conn, oiAndNvValueArr, syncTime);
 
     const {
       btcOpenInterestSum,
       ethOpenInterestSum,
       btcNotionalVolume,
       ethNotionalVolume
-    } = _getOIAndNVSum(valueArr);
+    } = _getOIAndNVSum(oiAndNvValueArr);
 
     await _insertNotionalVolume(conn, CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
     await _insertNotionalVolume(conn, CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
 
     await _insertOpenInterest(conn, CURRENCY_ID.BTC, syncTime, btcOpenInterestSum);
     await _insertOpenInterest(conn, CURRENCY_ID.ETH, syncTime, ethOpenInterestSum);
+
+    const blockTrades = await _getBlockTrades();
+    _assignBTValues(blockTrades, btValueArr);
+
+    await _insertBlockTradeData(conn, btValueArr);
 
     const timeTaken = (Date.now() - startTime) / 1000;
     console.log(`okex data sync completed in ${timeTaken}s`);
@@ -86,9 +107,9 @@ async function _getTickers (
   }
 }
 
-function _assignValues (
+function _assignNVValues (
   tickers: OKEXTickerResult[],
-  valueArr: OkexSyncValue[],
+  oiAndNvValueArr: OkexOIAndNVValue[],
   btcSpotValue: number,
   ethSpotValue: number
 ): void {
@@ -103,7 +124,7 @@ function _assignValues (
     const strike = Number(symbolSplit[3]);
 
     if (coinCurrency === "BTC") {
-      valueArr.push({
+      oiAndNvValueArr.push({
         coinCurrencyID: CURRENCY_ID.BTC,
         callOrPut,
         symbol,
@@ -113,7 +134,7 @@ function _assignValues (
       });
     }
     else if (coinCurrency === "ETH") {
-      valueArr.push({
+      oiAndNvValueArr.push({
         coinCurrencyID: CURRENCY_ID.ETH,
         callOrPut,
         symbol,
@@ -128,7 +149,7 @@ function _assignValues (
 }
 
 async function _assignOI (
-  valueArr: OkexSyncValue[],
+  oiAndNvValueArr: OkexOIAndNVValue[],
   btcSpotValue: number,
   ethSpotValue: number
 ): Promise<void> {
@@ -148,7 +169,7 @@ async function _assignOI (
   combinedResults = [...btcResult, ...ethResult];
 
   combinedResults.forEach(item => {
-    const value = valueArr.find(i => {
+    const value = oiAndNvValueArr.find(i => {
       return i.symbol === item.instId;
     });
 
@@ -168,7 +189,7 @@ async function _assignOI (
 }
 
 function _getOIAndNVSum (
-  valueArr: OkexSyncValue[]
+  oiAndNvValueArr: OkexOIAndNVValue[]
 ): {
   btcOpenInterestSum: number,
   ethOpenInterestSum: number,
@@ -181,7 +202,7 @@ function _getOIAndNVSum (
   let btcNotionalVolume = 0;
   let ethNotionalVolume = 0;
 
-  valueArr.forEach(item => {
+  oiAndNvValueArr.forEach(item => {
     const OI = <number>item.openInterest;
     const vol = <number>item.tradingVolume;
 
@@ -203,14 +224,54 @@ function _getOIAndNVSum (
   };
 }
 
+async function _getBlockTrades (
+): Promise<OKEXBlockTradeResult[]> {
+
+  try {
+    const lastBlockTradeID = await cache.getOkexLastBlockTradeID();
+
+    const result = await getBlockTrades({
+      beginID: lastBlockTradeID
+    });
+
+    return result;
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+function _assignBTValues (
+  blockTrades: OKEXBlockTradeResult[],
+  btValueArr: OkexBlockTradeValue[]
+): void {
+
+  blockTrades.forEach(blockTrade => {
+    blockTrade.legs.forEach(leg => {
+      btValueArr.push({
+        blockTradeID: blockTrade.blockTdId,
+        instrumentID: leg.instId,
+        tradeID: BigInt(leg.tradeId),
+        tradeTime: Math.floor(Number(blockTrade.cTime) / 1000),
+        side: leg.side,
+        price: Number(leg.px),
+        size: Number(leg.sz),
+        rawData: JSON.stringify(blockTrade)
+      });
+    });
+  });
+
+  return;
+}
+
 async function _insertExpiryData (
   conn: DBConnection,
-  valueArr: OkexSyncValue[],
+  oiAndNvValueArr: OkexOIAndNVValue[],
   timestamp: number
 ): Promise<void> {
 
   try {
-    await eachSeries(valueArr, _iterateInsert);
+    await eachSeries(oiAndNvValueArr, _iterateInsert);
   }
   catch (err) {
     throw err;
@@ -218,7 +279,7 @@ async function _insertExpiryData (
 
   return;
 
-  async function _iterateInsert (item: OkexSyncValue): Promise<void> {
+  async function _iterateInsert (item: OkexOIAndNVValue): Promise<void> {
     try {
       await insertExpiryData(
         conn,
@@ -284,4 +345,57 @@ async function _insertOpenInterest (
   }
 
   return;
+}
+
+async function _insertBlockTradeData (
+  conn: DBConnection,
+  btValueArr: OkexBlockTradeValue[]
+): Promise<void> {
+
+  if (btValueArr.length === 0) return;
+
+  let lastBlockTradeID = "0";
+
+  try {
+    await eachSeries(btValueArr, _iterateInsert);
+
+    btValueArr.forEach(item => {
+      if (item.blockTradeID > lastBlockTradeID) {
+        lastBlockTradeID = item.blockTradeID;
+      }
+    });
+
+    await cache.setOkexLastBlockTradeID(lastBlockTradeID);
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+
+  async function _iterateInsert (item: OkexBlockTradeValue): Promise<void> {
+    const coinCurrency = <"BTC" | "ETH">item.instrumentID.substring(0, 3);
+    const coinCurrencyID = CURRENCY_ID[coinCurrency];
+
+    try {
+      await insertOkexBlockTrade(
+        conn,
+        uuidV4(),
+        coinCurrencyID,
+        item.blockTradeID,
+        item.instrumentID,
+        item.tradeID,
+        item.tradeTime,
+        item.side,
+        item.price,
+        item.size,
+        item.rawData
+      );
+    }
+    catch (err) {
+      throw err;
+    }
+
+    return;
+  }
 }

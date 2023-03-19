@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOIAndVolumeExpiry = exports.getOIAndVolumeStrike = exports.getMarkPrice = exports.getOptionSummary = exports.getTicker = exports.getOpenInterest = exports.getSpotValue = void 0;
+exports.getBlockTrades = exports.getOIAndVolumeExpiry = exports.getOIAndVolumeStrike = exports.getMarkPrice = exports.getOptionSummary = exports.getTicker = exports.getOpenInterest = exports.getSpotValue = void 0;
 const axios_1 = __importDefault(require("axios"));
 const common_1 = require("../common.js");
 async function getSpotValue(currency) {
@@ -35,6 +35,9 @@ async function getOpenInterest(params) {
                 instFamily: params.coinCurrencyPair
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return data.data;
     }
     catch (err) {
@@ -52,6 +55,9 @@ async function getTicker(params) {
                 instFamily: params.coinCurrencyPair
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return data.data;
     }
     catch (err) {
@@ -68,6 +74,9 @@ async function getOptionSummary(params) {
                 instFamily: params.coinCurrencyPair
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return data.data;
     }
     catch (err) {
@@ -85,6 +94,9 @@ async function getMarkPrice(params) {
                 instId: params.instrumentID
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return Number(data.data[0].markPx);
     }
     catch (err) {
@@ -103,6 +115,9 @@ async function getOIAndVolumeStrike(params) {
                 period: "1D"
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return data.data;
     }
     catch (err) {
@@ -120,6 +135,9 @@ async function getOIAndVolumeExpiry(params) {
                 period: "1D"
             }
         });
+        if (data.code !== "0") {
+            throw data;
+        }
         return data.data;
     }
     catch (err) {
@@ -127,3 +145,23 @@ async function getOIAndVolumeExpiry(params) {
     }
 }
 exports.getOIAndVolumeExpiry = getOIAndVolumeExpiry;
+async function getBlockTrades(params) {
+    try {
+        const { data } = await (0, axios_1.default)({
+            method: "get",
+            url: common_1.okex.blockTradeURL,
+            params: {
+                beginId: params.beginID,
+                limit: 100
+            }
+        });
+        if (data.code !== "0") {
+            throw data;
+        }
+        return data.data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.getBlockTrades = getBlockTrades;

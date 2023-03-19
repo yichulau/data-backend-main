@@ -5,15 +5,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const moment_1 = __importDefault(require("moment"));
 const async_1 = require("async");
+const uuid_1 = require("uuid");
 const cache_1 = __importDefault(require("../../../cache/cache.js"));
 const volumeNotional_1 = require("../../../resource/volumeNotional.js");
 const openInterest_1 = require("../../../resource/openInterest.js");
 const expiry_1 = require("../../../resource/expiry.js");
+const blockTrade_1 = require("../../../resource/blockTrade.js");
 const bitcom_1 = require("../../../service/bitcom.js");
 const common_1 = require("../../../common.js");
 async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     const startTime = Date.now();
     let valueArr = [];
+    let btValueArr = [];
     try {
         const btcInstruments = await _getInstruments("BTC");
         const ethInstruments = await _getInstruments("ETH");
@@ -22,6 +25,9 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
         await _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue);
         await _insertExpiryData(conn, valueArr, syncTime);
         const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(valueArr);
+        const marketTrades = await _getMarketTrades();
+        _assignBTValues(marketTrades, btValueArr);
+        await _insertBlockTradeData(conn, btValueArr);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
         await _insertOpenInterest(conn, common_1.CURRENCY_ID.BTC, syncTime, btcOpenInterestSum);
@@ -160,6 +166,37 @@ function _getOIAndNVSum(valueArr) {
         ethNotionalVolume
     };
 }
+async function _getMarketTrades() {
+    let btcTrades = [];
+    let ethTrades = [];
+    try {
+        btcTrades = await (0, bitcom_1.getMarketTrades)({ coinCurrencyPair: "BTC-USD" });
+        ethTrades = await (0, bitcom_1.getMarketTrades)({ coinCurrencyPair: "ETH-USD" });
+    }
+    catch (err) {
+        throw err;
+    }
+    return [...btcTrades, ...ethTrades];
+}
+function _assignBTValues(marketTrades, btValueArr) {
+    marketTrades.forEach(trade => {
+        if (trade.is_block_trade) {
+            btValueArr.push({
+                blockTradeID: BigInt(trade.trade_id),
+                instrumentID: trade.instrument_id,
+                tradeID: BigInt(trade.trade_id),
+                tradeTime: Math.floor(Number(trade.created_at) / 1000),
+                side: trade.side,
+                price: Number(trade.price),
+                underlyingPrice: Number(trade.underlying_price),
+                size: Number(trade.qty),
+                sigma: Number(trade.sigma),
+                rawData: JSON.stringify(trade)
+            });
+        }
+    });
+    return;
+}
 async function _insertExpiryData(conn, valueArr, timestamp) {
     try {
         await (0, async_1.eachSeries)(valueArr, _iterateInsert);
@@ -195,4 +232,24 @@ async function _insertOpenInterest(conn, coinCurrencyID, timestamp, value) {
         throw err;
     }
     return;
+}
+async function _insertBlockTradeData(conn, btValueArr) {
+    try {
+        await (0, async_1.eachSeries)(btValueArr, _iterateInsert);
+    }
+    catch (err) {
+        throw err;
+    }
+    return;
+    async function _iterateInsert(item) {
+        const coinCurrency = item.instrumentID.substring(0, 3);
+        const coinCurrencyID = common_1.CURRENCY_ID[coinCurrency];
+        try {
+            await (0, blockTrade_1.insertBitcomBlockTrade)(conn, (0, uuid_1.v4)(), coinCurrencyID, item.blockTradeID, item.instrumentID, item.tradeID, item.tradeTime, item.side, item.price, item.underlyingPrice, item.size, item.sigma, item.rawData);
+        }
+        catch (err) {
+            throw err;
+        }
+        return;
+    }
 }

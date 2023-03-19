@@ -12,12 +12,12 @@ const deribit_1 = require("../../../service/deribit.js");
 const common_1 = require("../../../common.js");
 async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     const startTime = Date.now();
-    let valueArr = [];
+    let oiAndNvValueArr = [];
     try {
-        await _assignStrikeAndExpiry(valueArr);
-        await _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue);
-        await _insertExpiryData(conn, valueArr, syncTime);
-        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(valueArr);
+        await _assignStrikeAndExpiry(oiAndNvValueArr);
+        await _assignOIAndVolume(oiAndNvValueArr, btcSpotValue, ethSpotValue);
+        await _insertExpiryData(conn, oiAndNvValueArr, syncTime);
+        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(oiAndNvValueArr);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
         await _insertOpenInterest(conn, common_1.CURRENCY_ID.BTC, syncTime, btcOpenInterestSum);
@@ -32,7 +32,7 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     return;
 }
 exports.default = default_1;
-async function _assignStrikeAndExpiry(valueArr) {
+async function _assignStrikeAndExpiry(oiAndNvValueArr) {
     let btcResult = [];
     let ethResult = [];
     let combinedResults = [];
@@ -54,7 +54,7 @@ async function _assignStrikeAndExpiry(valueArr) {
         else if (item.base_currency === "ETH") {
             coinCurrencyID = common_1.CURRENCY_ID.ETH;
         }
-        valueArr.push({
+        oiAndNvValueArr.push({
             coinCurrencyID,
             callOrPut,
             instrumentName: item.instrument_name,
@@ -64,7 +64,7 @@ async function _assignStrikeAndExpiry(valueArr) {
     });
     return;
 }
-async function _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue) {
+async function _assignOIAndVolume(oiAndNvValueArr, btcSpotValue, ethSpotValue) {
     let btcResult = [];
     let ethResult = [];
     let combinedResults = [];
@@ -77,7 +77,7 @@ async function _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue) {
     }
     combinedResults = [...btcResult, ...ethResult];
     combinedResults.forEach(item => {
-        const value = valueArr.find(i => {
+        const value = oiAndNvValueArr.find(i => {
             return i.instrumentName === item.instrument_name;
         });
         if (item.base_currency === "BTC") {
@@ -91,12 +91,12 @@ async function _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue) {
     });
     return;
 }
-function _getOIAndNVSum(valueArr) {
+function _getOIAndNVSum(oiAndNvValueArr) {
     let btcOpenInterestSum = 0;
     let ethOpenInterestSum = 0;
     let btcNotionalVolume = 0;
     let ethNotionalVolume = 0;
-    valueArr.forEach(item => {
+    oiAndNvValueArr.forEach(item => {
         const OI = item.openInterest;
         const vol = item.tradingVolume;
         if (item.coinCurrencyID === common_1.CURRENCY_ID.BTC) {
@@ -115,9 +115,9 @@ function _getOIAndNVSum(valueArr) {
         ethNotionalVolume
     };
 }
-async function _insertExpiryData(conn, valueArr, timestamp) {
+async function _insertExpiryData(conn, oiAndNvValueArr, timestamp) {
     try {
-        await (0, async_1.eachSeries)(valueArr, _iterateInsert);
+        await (0, async_1.eachSeries)(oiAndNvValueArr, _iterateInsert);
     }
     catch (err) {
         throw err;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dbPoolConfig = exports.okex = exports.deribit = exports.bitcom = exports.bybit = exports.binance = exports.bitcomInstrumentCacheExpirySecs = exports.bitcomInstrumentCachePrefix = exports.binanceSymbolCacheExpirySecs = exports.binanceSymbolCachePrefix = exports.DATEFORMAT = exports.EXCHANGE_ID = exports.CURRENCY_ID = void 0;
+exports.dbPoolConfig = exports.okex = exports.deribit = exports.bitcom = exports.bybit = exports.binance = exports.okexLastBlockTradeIDKey = exports.bitcomInstrumentCacheExpirySecs = exports.bitcomInstrumentCachePrefix = exports.binanceSymbolCacheExpirySecs = exports.binanceSymbolCachePrefix = exports.DATEFORMAT = exports.EXCHANGE_ID = exports.CURRENCY_ID = void 0;
 exports.CURRENCY_ID = {
     BTC: 1,
     ETH: 2,
@@ -18,6 +18,7 @@ exports.binanceSymbolCachePrefix = "binance-symbol:";
 exports.binanceSymbolCacheExpirySecs = 43200;
 exports.bitcomInstrumentCachePrefix = "bitcom-inst:";
 exports.bitcomInstrumentCacheExpirySecs = 4320;
+exports.okexLastBlockTradeIDKey = "okex-lastrecvblocktradeid";
 exports.binance = {
     wsURL: "wss://nbstream.binance.com/eoptions/stream",
     indexPriceURL: "https://eapi.binance.com/eapi/v1/index",
@@ -27,13 +28,17 @@ exports.binance = {
     openInterestURL: "https://eapi.binance.com/eapi/v1/openInterest"
 };
 exports.bybit = {
-    wsURL: "wss://stream.bytick.com/option/usdc/public/v3",
+    optionWsURL: "wss://stream.bytick.com/option/usdc/public/v3",
+    spotWsURL: "wss://stream.bybit.com/v5/public/spot",
+    linearWsURL: "wss://stream.bybit.com/v5/public/linear",
+    inverseWsURL: "wss://stream.bybit.com/v5/public/inverse",
     tickerURL: "https://api.bytick.com/v5/market/tickers"
 };
 exports.bitcom = {
     wsURL: "wss://ws.bit.com",
     instrumentURL: "https://api.bit.com/v1/instruments",
-    tickerURL: "https://api.bit.com/v1/tickers"
+    tickerURL: "https://api.bit.com/v1/tickers",
+    marketTradeURL: "https://api.bit.com/linear/v1/market/trades"
 };
 exports.deribit = {
     wsURL: "wss://www.deribit.com/ws/api/v2",
@@ -49,7 +54,8 @@ exports.okex = {
     optSummaryURL: "https://okx.com/api/v5/public/opt-summary",
     markPriceURL: "https://okx.com/api/v5/public/mark-price",
     oiAndVolumeStrikeURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-strike",
-    oiAndVolumeExpiryURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-expiry"
+    oiAndVolumeExpiryURL: "https://okx.com/api/v5/rubik/stat/option/open-interest-volume-expiry",
+    blockTradeURL: "https://www.okx.com/api/v5/rfq/public-trades"
 };
 exports.dbPoolConfig = {
     multipleStatements: false,
@@ -60,5 +66,6 @@ exports.dbPoolConfig = {
     connectionLimit: 10,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    supportBigNumbers: true
 };

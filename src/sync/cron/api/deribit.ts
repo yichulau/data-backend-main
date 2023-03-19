@@ -18,7 +18,7 @@ import {
   DATEFORMAT
 } from "../../../common";
 
-type DeribitSyncValue = {
+type DeribitOIAndNVValue = {
   coinCurrencyID: number,
   callOrPut: "C" | "P",
   instrumentName: string,
@@ -37,20 +37,20 @@ export default async function (
 
   const startTime = Date.now();
 
-  let valueArr: DeribitSyncValue[] = [];
+  let oiAndNvValueArr: DeribitOIAndNVValue[] = [];
 
   try {
-    await _assignStrikeAndExpiry(valueArr);
-    await _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue);
+    await _assignStrikeAndExpiry(oiAndNvValueArr);
+    await _assignOIAndVolume(oiAndNvValueArr, btcSpotValue, ethSpotValue);
 
-    await _insertExpiryData(conn, valueArr, syncTime);
+    await _insertExpiryData(conn, oiAndNvValueArr, syncTime);
 
     const {
       btcOpenInterestSum,
       ethOpenInterestSum,
       btcNotionalVolume,
       ethNotionalVolume
-    } = _getOIAndNVSum(valueArr);
+    } = _getOIAndNVSum(oiAndNvValueArr);
 
     await _insertNotionalVolume(conn, CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
     await _insertNotionalVolume(conn, CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
@@ -70,7 +70,7 @@ export default async function (
 }
 
 async function _assignStrikeAndExpiry (
-  valueArr: DeribitSyncValue[]
+  oiAndNvValueArr: DeribitOIAndNVValue[]
 ): Promise<void> {
 
   let btcResult: DeribitInstrumentsResult[] = [];
@@ -99,7 +99,7 @@ async function _assignStrikeAndExpiry (
       coinCurrencyID = CURRENCY_ID.ETH;
     }
 
-    valueArr.push({
+    oiAndNvValueArr.push({
       coinCurrencyID,
       callOrPut,
       instrumentName: item.instrument_name,
@@ -112,7 +112,7 @@ async function _assignStrikeAndExpiry (
 }
 
 async function _assignOIAndVolume (
-  valueArr: DeribitSyncValue[],
+  oiAndNvValueArr: DeribitOIAndNVValue[],
   btcSpotValue: number,
   ethSpotValue: number
 ): Promise<void> {
@@ -132,7 +132,7 @@ async function _assignOIAndVolume (
   combinedResults = [...btcResult, ...ethResult];
 
   combinedResults.forEach(item => {
-    const value = <DeribitSyncValue>valueArr.find(i => {
+    const value = <DeribitOIAndNVValue>oiAndNvValueArr.find(i => {
       return i.instrumentName === item.instrument_name;
     });
 
@@ -150,7 +150,7 @@ async function _assignOIAndVolume (
 }
 
 function _getOIAndNVSum (
-  valueArr: DeribitSyncValue[]
+  oiAndNvValueArr: DeribitOIAndNVValue[]
 ): {
   btcOpenInterestSum: number,
   ethOpenInterestSum: number,
@@ -163,7 +163,7 @@ function _getOIAndNVSum (
   let btcNotionalVolume = 0;
   let ethNotionalVolume = 0;
 
-  valueArr.forEach(item => {
+  oiAndNvValueArr.forEach(item => {
     const OI = <number>item.openInterest;
     const vol = <number>item.tradingVolume;
 
@@ -187,12 +187,12 @@ function _getOIAndNVSum (
 
 async function _insertExpiryData (
   conn: DBConnection,
-  valueArr: DeribitSyncValue[],
+  oiAndNvValueArr: DeribitOIAndNVValue[],
   timestamp: number
 ): Promise<void> {
 
   try {
-    await eachSeries(valueArr, _iterateInsert);
+    await eachSeries(oiAndNvValueArr, _iterateInsert);
   }
   catch (err) {
     throw err;
@@ -200,7 +200,7 @@ async function _insertExpiryData (
 
   return;
 
-  async function _iterateInsert (item: DeribitSyncValue): Promise<void> {
+  async function _iterateInsert (item: DeribitOIAndNVValue): Promise<void> {
     try {
       await insertExpiryData(
         conn,

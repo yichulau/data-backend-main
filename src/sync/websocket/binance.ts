@@ -46,7 +46,7 @@ export default function startBinanceWS () {
         _updateLatestIndexPrice(json.data, topic);
       }
       else if (topic.includes("@trade")) {
-        await _insertContract(json.data, topic);
+        await _insertContract(json);
       }
     })
     .on("error", (err) => {
@@ -65,7 +65,10 @@ function _updateLatestIndexPrice (data: any, topic: string) {
   return;
 }
 
-async function _insertContract (item: any, topic: string) {
+async function _insertContract (json: any) {
+  const item = json.data;
+  const topic = json.stream;
+
   const coinCurrency = <"BTC" | "ETH" | "SOL">topic.substring(0, 3);
 
   const coinCurrencyID = CURRENCY_ID[coinCurrency];
@@ -82,7 +85,9 @@ async function _insertContract (item: any, topic: string) {
       indexPrice,
       item.q,
       item.b,
-      item.a
+      item.a,
+      item.S === 1 ? "buy" : "sell",
+      JSON.stringify(json)
     );
 
     console.log(`inserted binance contract ${topic} | instrumentID: ${item.s} tradeID: ${item.t}`);

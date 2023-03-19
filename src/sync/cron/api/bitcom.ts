@@ -1,16 +1,19 @@
 import moment from "moment";
 import { eachSeries } from "async";
-
-import DBConnection from "@database/conn";
+import { v4 as uuidV4 } from "uuid";
 
 import cache from "@cache/cache";
+import DBConnection from "@database/conn";
+
 import { insert as insertVolumeNotional } from "@resource/volumeNotional";
 import { insert as insertOpenInterest } from "@resource/openInterest";
 import { insert as insertExpiryData } from "@resource/expiry";
+import { insertBitcomBlockTrade } from "@resource/blockTrade";
 
 import {
   getInstruments,
-  getTicker
+  getTicker,
+  getMarketTrades
 } from "@service/bitcom";
 
 import {
@@ -29,6 +32,19 @@ type BitcomSyncValue = {
   openInterest?: number;
 };
 
+type BitcomBlockTradeValue = {
+  blockTradeID: bigint,
+  instrumentID: string,
+  tradeID: bigint,
+  tradeTime: number,
+  side: "buy" | "sell",
+  price: number,
+  underlyingPrice: number,
+  size: number,
+  sigma: number,
+  rawData: string;
+};
+
 export default async function (
   conn: DBConnection,
   syncTime: number, // unix timestamp in seconds
@@ -39,6 +55,7 @@ export default async function (
   const startTime = Date.now();
 
   let valueArr: BitcomSyncValue[] = [];
+  let btValueArr: BitcomBlockTradeValue[] = [];
 
   try {
     const btcInstruments = await _getInstruments("BTC");
@@ -56,6 +73,11 @@ export default async function (
       btcNotionalVolume,
       ethNotionalVolume
     } = _getOIAndNVSum(valueArr);
+
+    const marketTrades = await _getMarketTrades();
+    _assignBTValues(marketTrades, btValueArr);
+
+    await _insertBlockTradeData(conn, btValueArr);
 
     await _insertNotionalVolume(conn, CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
     await _insertNotionalVolume(conn, CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
@@ -240,6 +262,48 @@ function _getOIAndNVSum (
   };
 }
 
+async function _getMarketTrades (
+): Promise<BitcomMarketTradeResult[]> {
+
+  let btcTrades: BitcomMarketTradeResult[] = [];
+  let ethTrades: BitcomMarketTradeResult[] = [];
+
+  try {
+    btcTrades = await getMarketTrades({ coinCurrencyPair: "BTC-USD" });
+    ethTrades = await getMarketTrades({ coinCurrencyPair: "ETH-USD" });
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return [...btcTrades, ...ethTrades];
+}
+
+function _assignBTValues (
+  marketTrades: BitcomMarketTradeResult[],
+  btValueArr: BitcomBlockTradeValue[]
+): void {
+
+  marketTrades.forEach(trade => {
+    if (trade.is_block_trade) {
+      btValueArr.push({
+        blockTradeID: BigInt(trade.trade_id),
+        instrumentID: trade.instrument_id,
+        tradeID: BigInt(trade.trade_id),
+        tradeTime: Math.floor(Number(trade.created_at) / 1000),
+        side: trade.side,
+        price: Number(trade.price),
+        underlyingPrice: Number(trade.underlying_price),
+        size: Number(trade.qty),
+        sigma: Number(trade.sigma),
+        rawData: JSON.stringify(trade)
+      });
+    }
+  });
+
+  return;
+}
+
 async function _insertExpiryData (
   conn: DBConnection,
   valueArr: BitcomSyncValue[],
@@ -321,4 +385,47 @@ async function _insertOpenInterest (
   }
 
   return;
+}
+
+async function _insertBlockTradeData (
+  conn: DBConnection,
+  btValueArr: BitcomBlockTradeValue[]
+): Promise<void> {
+
+  try {
+    await eachSeries(btValueArr, _iterateInsert);
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+
+  async function _iterateInsert (item: BitcomBlockTradeValue): Promise<void> {
+    const coinCurrency = <"BTC" | "ETH">item.instrumentID.substring(0, 3);
+    const coinCurrencyID = CURRENCY_ID[coinCurrency];
+
+    try {
+      await insertBitcomBlockTrade(
+        conn,
+        uuidV4(),
+        coinCurrencyID,
+        item.blockTradeID,
+        item.instrumentID,
+        item.tradeID,
+        item.tradeTime,
+        item.side,
+        item.price,
+        item.underlyingPrice,
+        item.size,
+        item.sigma,
+        item.rawData
+      );
+    }
+    catch (err) {
+      throw err;
+    }
+
+    return;
+  }
 }

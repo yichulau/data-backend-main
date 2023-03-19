@@ -3,9 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.insertOkexContract = exports.insertDeribitContract = exports.insertBybitContract = exports.insertBitcomContract = exports.insertBinanceContract = exports.getLast24HOkexContracts = exports.getLast24HDeribitContracts = exports.getLast24HBybitContracts = exports.getLast24HBitcomContracts = exports.getLast24HBinanceContracts = void 0;
+exports.insertOkexContract = exports.insertDeribitContract = exports.insertBybitContract = exports.insertBitcomContract = exports.insertBinanceContract = exports.countRecentOkexContracts = exports.getRecentOkexContracts = exports.countRecentDeribitContracts = exports.getRecentDeribitContracts = exports.countRecentBybitContracts = exports.getRecentBybitContracts = exports.countRecentBitcomContracts = exports.getRecentBitcomContracts = exports.countRecentBinanceContracts = exports.getRecentBinanceContracts = void 0;
 const db_1 = __importDefault(require("../database/db.js"));
-async function getLast24HBinanceContracts(conn, coinCurrencyID) {
+async function getRecentBinanceContracts(conn, interval, coinCurrencyID, limit) {
     let result;
     let query = `
     SELECT
@@ -16,7 +16,8 @@ async function getLast24HBinanceContracts(conn, coinCurrencyID) {
       UNIX_TIMESTAMP(tradeTime) AS tradeTime,
       price,
       indexPrice,
-      quantity
+      quantity,
+      direction
     FROM
       Contracts_Traded_Binance
     WHERE `;
@@ -25,7 +26,16 @@ async function getLast24HBinanceContracts(conn, coinCurrencyID) {
         query += "coinCurrencyID = ? AND ";
         data.push(coinCurrencyID);
     }
-    query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    if (limit) {
+        query += "ORDER BY tradeTime DESC LIMIT ?";
+        data.push(limit);
+    }
     try {
         if (conn) {
             result = await conn.query(query, data);
@@ -39,8 +49,41 @@ async function getLast24HBinanceContracts(conn, coinCurrencyID) {
         throw err;
     }
 }
-exports.getLast24HBinanceContracts = getLast24HBinanceContracts;
-async function getLast24HBitcomContracts(conn, coinCurrencyID) {
+exports.getRecentBinanceContracts = getRecentBinanceContracts;
+async function countRecentBinanceContracts(conn, interval, coinCurrencyID) {
+    let result;
+    let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Binance
+    WHERE `;
+    let data = [];
+    if (coinCurrencyID) {
+        query += "coinCurrencyID = ? AND ";
+        data.push(coinCurrencyID);
+    }
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    try {
+        if (conn) {
+            result = await conn.query(query, data);
+        }
+        else {
+            result = await db_1.default.query(query, data);
+        }
+        return result[0][0].count;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.countRecentBinanceContracts = countRecentBinanceContracts;
+async function getRecentBitcomContracts(conn, interval, coinCurrencyID, limit) {
     let result;
     let query = `
     SELECT
@@ -61,7 +104,16 @@ async function getLast24HBitcomContracts(conn, coinCurrencyID) {
         query += "coinCurrencyID = ? AND ";
         data.push(coinCurrencyID);
     }
-    query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    if (limit) {
+        query += "ORDER BY tradeTime DESC LIMIT ?";
+        data.push(limit);
+    }
     try {
         if (conn) {
             result = await conn.query(query, data);
@@ -75,8 +127,41 @@ async function getLast24HBitcomContracts(conn, coinCurrencyID) {
         throw err;
     }
 }
-exports.getLast24HBitcomContracts = getLast24HBitcomContracts;
-async function getLast24HBybitContracts(conn, coinCurrencyID) {
+exports.getRecentBitcomContracts = getRecentBitcomContracts;
+async function countRecentBitcomContracts(conn, interval, coinCurrencyID) {
+    let result;
+    let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Bitcom
+    WHERE `;
+    let data = [];
+    if (coinCurrencyID) {
+        query += "coinCurrencyID = ? AND ";
+        data.push(coinCurrencyID);
+    }
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    try {
+        if (conn) {
+            result = await conn.query(query, data);
+        }
+        else {
+            result = await db_1.default.query(query, data);
+        }
+        return result[0][0].count;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.countRecentBitcomContracts = countRecentBitcomContracts;
+async function getRecentBybitContracts(conn, interval, coinCurrencyID, limit) {
     let result;
     let query = `
     SELECT
@@ -99,7 +184,16 @@ async function getLast24HBybitContracts(conn, coinCurrencyID) {
         query += "coinCurrencyID = ? AND ";
         data.push(coinCurrencyID);
     }
-    query += "tradeTime >= NOW() - INTERVAL 1 DAY;";
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    if (limit) {
+        query += "ORDER BY tradeTime DESC LIMIT ?";
+        data.push(limit);
+    }
     try {
         if (conn) {
             result = await conn.query(query, data);
@@ -113,8 +207,41 @@ async function getLast24HBybitContracts(conn, coinCurrencyID) {
         throw err;
     }
 }
-exports.getLast24HBybitContracts = getLast24HBybitContracts;
-async function getLast24HDeribitContracts(conn, coinCurrencyID) {
+exports.getRecentBybitContracts = getRecentBybitContracts;
+async function countRecentBybitContracts(conn, interval, coinCurrencyID) {
+    let result;
+    let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Bybit
+    WHERE `;
+    let data = [];
+    if (coinCurrencyID) {
+        query += "coinCurrencyID = ? AND ";
+        data.push(coinCurrencyID);
+    }
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    try {
+        if (conn) {
+            result = await conn.query(query, data);
+        }
+        else {
+            result = await db_1.default.query(query, data);
+        }
+        return result[0][0].count;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.countRecentBybitContracts = countRecentBybitContracts;
+async function getRecentDeribitContracts(conn, interval, coinCurrencyID, limit) {
     let result;
     let query = `
     SELECT
@@ -137,7 +264,16 @@ async function getLast24HDeribitContracts(conn, coinCurrencyID) {
         query += "coinCurrencyID = ? AND ";
         data.push(coinCurrencyID);
     }
-    query += "tradeTime >= NOW() - INTERVAL 1 DAY";
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    if (limit) {
+        query += "ORDER BY tradeTime DESC LIMIT ?";
+        data.push(limit);
+    }
     try {
         if (conn) {
             result = await conn.query(query, data);
@@ -151,8 +287,41 @@ async function getLast24HDeribitContracts(conn, coinCurrencyID) {
         throw err;
     }
 }
-exports.getLast24HDeribitContracts = getLast24HDeribitContracts;
-async function getLast24HOkexContracts(conn, coinCurrencyID) {
+exports.getRecentDeribitContracts = getRecentDeribitContracts;
+async function countRecentDeribitContracts(conn, interval, coinCurrencyID) {
+    let result;
+    let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Deribit
+    WHERE `;
+    let data = [];
+    if (coinCurrencyID) {
+        query += "coinCurrencyID = ? AND ";
+        data.push(coinCurrencyID);
+    }
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    try {
+        if (conn) {
+            result = await conn.query(query, data);
+        }
+        else {
+            result = await db_1.default.query(query, data);
+        }
+        return result[0][0].count;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.countRecentDeribitContracts = countRecentDeribitContracts;
+async function getRecentOkexContracts(conn, interval, coinCurrencyID, limit) {
     let result;
     let query = `
     SELECT
@@ -173,7 +342,16 @@ async function getLast24HOkexContracts(conn, coinCurrencyID) {
         query += "coinCurrencyID = ? AND ";
         data.push(coinCurrencyID);
     }
-    query += "tradeTime >= NOW() - INTERVAL 1 DAY";
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    if (limit) {
+        query += "ORDER BY tradeTime DESC LIMIT ?";
+        data.push(limit);
+    }
     try {
         if (conn) {
             result = await conn.query(query, data);
@@ -187,15 +365,50 @@ async function getLast24HOkexContracts(conn, coinCurrencyID) {
         throw err;
     }
 }
-exports.getLast24HOkexContracts = getLast24HOkexContracts;
-async function insertBinanceContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, price, indexPrice, quantity, buyerOrderID, sellerOrderID) {
+exports.getRecentOkexContracts = getRecentOkexContracts;
+async function countRecentOkexContracts(conn, interval, coinCurrencyID) {
+    let result;
+    let query = `
+    SELECT
+      COUNT(ID) AS count
+    FROM
+      Contracts_Traded_Okex
+    WHERE `;
+    let data = [];
+    if (coinCurrencyID) {
+        query += "coinCurrencyID = ? AND ";
+        data.push(coinCurrencyID);
+    }
+    if (interval === "1day") {
+        query += "tradeTime >= NOW() - INTERVAL 1 DAY ";
+    }
+    else {
+        query += "tradeTime >= NOW() - INTERVAL 1 SECOND ";
+    }
+    try {
+        if (conn) {
+            result = await conn.query(query, data);
+        }
+        else {
+            result = await db_1.default.query(query, data);
+        }
+        return result[0][0].count;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+exports.countRecentOkexContracts = countRecentOkexContracts;
+async function insertBinanceContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, price, indexPrice, quantity, buyerOrderID, sellerOrderID, direction, rawData) {
     const query = `
-    INSERT INTO Contracts_Traded_Binance
-      (coinCurrencyID, instrumentID, tradeID, tradeTime, price,
-      indexPrice, quantity, buyerOrderID, sellerOrderID)
+    INSERT IGNORE INTO Contracts_Traded_Binance
+      (coinCurrencyID, instrumentID, tradeID, tradeTime,
+      price, indexPrice, quantity, buyerOrderID,
+      sellerOrderID, direction, rawData)
     VALUES
-      (?, ?, ?, FROM_UNIXTIME(?), ?,
-      ?, ?, ?, ?);
+      (?, ?, ?, FROM_UNIXTIME(?),
+      ?, ?, ?, ?,
+      ?, ?, ?);
   `;
     const data = [
         coinCurrencyID,
@@ -206,7 +419,9 @@ async function insertBinanceContract(conn, coinCurrencyID, instrumentID, tradeID
         indexPrice,
         quantity,
         buyerOrderID,
-        sellerOrderID
+        sellerOrderID,
+        direction,
+        rawData
     ];
     try {
         if (conn) {
@@ -222,14 +437,14 @@ async function insertBinanceContract(conn, coinCurrencyID, instrumentID, tradeID
     }
 }
 exports.insertBinanceContract = insertBinanceContract;
-async function insertBitcomContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, price, indexPrice, quantity, side) {
+async function insertBitcomContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, price, indexPrice, quantity, side, rawData) {
     const query = `
-    INSERT INTO Contracts_Traded_Bitcom
+    INSERT IGNORE INTO Contracts_Traded_Bitcom
       (coinCurrencyID, instrumentID, tradeID, tradeTime,
-      price, indexPrice, quantity, side)
+      price, indexPrice, quantity, side, rawData)
     VALUES
       (?, ?, FROM_UNIXTIME(?),
-      ?, ?, ?, ?);
+      ?, ?, ?, ?, ?);
   `;
     const data = [
         coinCurrencyID,
@@ -239,7 +454,8 @@ async function insertBitcomContract(conn, coinCurrencyID, instrumentID, tradeID,
         price,
         indexPrice,
         quantity,
-        side
+        side,
+        rawData
     ];
     try {
         if (conn) {
@@ -255,16 +471,16 @@ async function insertBitcomContract(conn, coinCurrencyID, instrumentID, tradeID,
     }
 }
 exports.insertBitcomContract = insertBitcomContract;
-async function insertBybitContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, direction, positionQuantity, orderPrice, indexPrice, priceChangeDirection, isBlockTrade) {
+async function insertBybitContract(conn, coinCurrencyID, instrumentID, tradeID, tradeTime, direction, positionQuantity, orderPrice, indexPrice, priceChangeDirection, isBlockTrade, rawData) {
     const query = `
-    INSERT INTO Contracts_Traded_Bybit
+    INSERT IGNORE INTO Contracts_Traded_Bybit
       (coinCurrencyID, instrumentID, tradeID, tradeTime,
       direction, positionQuantity, orderPrice, indexPrice,
-      priceChangeDirection, isBlockTrade)
+      priceChangeDirection, isBlockTrade, rawData)
     VALUES
       (?, ?, ?, FROM_UNIXTIME(?),
       ?, ?, ?, ?,
-      ?, ?)
+      ?, ?, ?)
   `;
     const data = [
         coinCurrencyID,
@@ -276,7 +492,8 @@ async function insertBybitContract(conn, coinCurrencyID, instrumentID, tradeID, 
         orderPrice,
         indexPrice,
         priceChangeDirection,
-        isBlockTrade
+        isBlockTrade,
+        rawData
     ];
     try {
         if (conn) {
@@ -292,14 +509,16 @@ async function insertBybitContract(conn, coinCurrencyID, instrumentID, tradeID, 
     }
 }
 exports.insertBybitContract = insertBybitContract;
-async function insertDeribitContract(conn, coinCurrencyID, tradeID, tradeTime, tickDirection, price, markPrice, iv, instrumentName, indexPrice, direction, amount) {
+async function insertDeribitContract(conn, coinCurrencyID, tradeID, tradeTime, tickDirection, price, markPrice, iv, instrumentName, indexPrice, direction, amount, rawData) {
     const query = `
-    INSERT INTO Contracts_Traded_Deribit
-      (coinCurrencyID, tradeID, tradeTime, tickDirection, price,
-      markPrice, iv, instrumentName, indexPrice, direction, amount)
+    INSERT IGNORE INTO Contracts_Traded_Deribit
+      (coinCurrencyID, tradeID, tradeTime, tickDirection,
+      price, markPrice, iv, instrumentName, indexPrice,
+      direction, amount, rawData)
     VALUES
-      (?, ?, FROM_UNIXTIME(?), ?, ?,
-      ?, ?, ?, ?, ?, ?);
+      (?, ?, FROM_UNIXTIME(?), ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?);
   `;
     const data = [
         coinCurrencyID,
@@ -312,7 +531,8 @@ async function insertDeribitContract(conn, coinCurrencyID, tradeID, tradeTime, t
         instrumentName,
         indexPrice,
         direction,
-        amount
+        amount,
+        rawData
     ];
     try {
         if (conn) {
@@ -328,16 +548,16 @@ async function insertDeribitContract(conn, coinCurrencyID, tradeID, tradeTime, t
     }
 }
 exports.insertDeribitContract = insertDeribitContract;
-async function insertOkexContract(conn, coinCurrencyID, tradeID, tradeTime, instrumentID, instrumentFamily, price, quantity, side, optionType, fillVol, forwardPrice, indexPrice, markPrice) {
+async function insertOkexContract(conn, coinCurrencyID, tradeID, tradeTime, instrumentID, instrumentFamily, price, quantity, side, optionType, fillVol, forwardPrice, indexPrice, markPrice, rawData) {
     const query = `
-    INSERT INTO Contracts_Traded_Okex
+    INSERT IGNORE INTO Contracts_Traded_Okex
       (coinCurrencyID, tradeID, tradeTime, instrumentID,
       instrumentFamily, price, quantity, side, optionType,
-      fillVol, forwardPrice, indexPrice, markPrice)
+      fillVol, forwardPrice, indexPrice, markPrice, rawData)
     VALUES
       (?, ?, FROM_UNIXTIME(?), ?,
       ?, ?, ?, ?, ?,
-      ?, ?, ?, ?);
+      ?, ?, ?, ?, ?);
   `;
     const data = [
         coinCurrencyID,
@@ -352,7 +572,8 @@ async function insertOkexContract(conn, coinCurrencyID, tradeID, tradeTime, inst
         fillVol,
         forwardPrice,
         indexPrice,
-        markPrice
+        markPrice,
+        rawData
     ];
     try {
         if (conn) {

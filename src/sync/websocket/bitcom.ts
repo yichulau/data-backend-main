@@ -66,7 +66,7 @@ export default function startBitcomWS () {
         _updateLatestIndexPrice(json.data.index_name, Number(json.data.index_price));
       }
       else if (topic === "market_trade") {
-        await _insertContract(json.data[0], json.data[0].pair);
+        await _insertContract(json);
       }
     })
     .on("error", (err) => {
@@ -85,7 +85,10 @@ function _updateLatestIndexPrice (indexName: string, indexPrice: number) {
   return;
 }
 
-async function _insertContract (item: any, pair: string) {
+async function _insertContract (json: any) {
+  const item = json.data[0];
+  const pair = item.pair;
+
   const coinCurrency = <"BTC" | "ETH">pair.substring(0, 3);
   
   const coinCurrencyID = CURRENCY_ID[coinCurrency];
@@ -101,7 +104,8 @@ async function _insertContract (item: any, pair: string) {
       item.price,
       indexPrice,
       item.qty,
-      item.side
+      item.side,
+      JSON.stringify(json)
     );
 
     console.log(`inserted bit.com contract ${pair} | instrumentID: ${item.instrument_id} tradeID ${item.trade_id}`);

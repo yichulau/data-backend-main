@@ -37,7 +37,7 @@ function startOkexWS() {
             return;
         const json = JSON.parse(data.toString());
         if (!json.event && json.arg?.channel === "option-trades") {
-            await _insertContract(json.data[0], json.arg.instFamily);
+            await _insertContract(json);
         }
     })
         .on("error", (err) => {
@@ -49,7 +49,9 @@ function startOkexWS() {
     });
 }
 exports.default = startOkexWS;
-async function _insertContract(item, instFamily) {
+async function _insertContract(json) {
+    const item = json.data[0];
+    const instFamily = json.arg.instFamily;
     let coinCurrencyID = 0;
     switch (instFamily) {
         case "BTC-USD":
@@ -63,7 +65,7 @@ async function _insertContract(item, instFamily) {
             break;
     }
     try {
-        await (0, contractsTraded_1.insertOkexContract)(null, coinCurrencyID, item.tradeId, Math.floor(item.ts / 1000), item.instId, item.instFamily, item.px, item.sz, item.side, item.optType, item.fillVol, item.fwdPx, item.indexPx, item.markPx);
+        await (0, contractsTraded_1.insertOkexContract)(null, coinCurrencyID, item.tradeId, Math.floor(item.ts / 1000), item.instId, item.instFamily, item.px, item.sz, item.side, item.optType, item.fillVol, item.fwdPx, item.indexPx, item.markPx, JSON.stringify(json));
         console.log(`inserted okex contract ${instFamily} tradeID ${item.tradeId}`);
     }
     catch (err) {
