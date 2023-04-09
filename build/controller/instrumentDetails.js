@@ -146,7 +146,7 @@ async function _getBinanceInstrumentDetails(coinCurrency, timestamp, instrumentN
 async function _getBitcomInstrumentDetails(coinCurrency, timestamp, instrumentName) {
     let instResult, tickerResult;
     try {
-        instResult = await bitcom.getInstruments({ coinCurrency });
+        instResult = await bitcom.getInstruments();
         tickerResult = await bitcom.getTicker({
             instrumentID: instrumentName
         });
@@ -154,7 +154,9 @@ async function _getBitcomInstrumentDetails(coinCurrency, timestamp, instrumentNa
     catch (err) {
         throw err;
     }
-    const instDetails = instResult.find(i => i.instrument_id === instrumentName);
+    const instDetails = instResult
+        .filter(i => i.base_currency === coinCurrency)
+        .find(i => i.instrument_id === instrumentName);
     if (!instDetails)
         return null;
     return {

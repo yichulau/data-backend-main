@@ -5,6 +5,8 @@ import {
   binanceSymbolCacheExpirySecs,
   bitcomInstrumentCachePrefix,
   bitcomInstrumentCacheExpirySecs,
+  deribitInstrumentCachePrefix,
+  deribitInstrumentCacheExpirySecs,
   okexLastBlockTradeIDKey
 } from "../common";
 
@@ -15,13 +17,15 @@ export default {
   setBinanceSymbol,
   getBitcomInstrument,
   setBitcomInstrument,
+  getDeribitTicker,
+  setDeribitTicker,
   getOkexLastBlockTradeID,
   setOkexLastBlockTradeID
 };
 
 async function getBinanceSymbol (
   symbol: string
-): Promise<BinanceSymbolValues | undefined> {
+): Promise<BinanceSymbolCacheValues | undefined> {
 
   try {
     const result = await redis.get(`${binanceSymbolCachePrefix}${symbol}`);
@@ -35,7 +39,7 @@ async function getBinanceSymbol (
 }
 
 async function setBinanceSymbol (
-  obj: BinanceSymbolValues
+  obj: BinanceSymbolCacheValues
 ): Promise<void> {
 
   try {
@@ -54,7 +58,7 @@ async function setBinanceSymbol (
 
 async function getBitcomInstrument (
   instrumentID: string
-): Promise<BitcomInstValues | undefined> {
+): Promise<BitcomInstCacheValues | undefined> {
 
   try {
     const result = await redis.get(`${bitcomInstrumentCachePrefix}${instrumentID}`);
@@ -68,13 +72,46 @@ async function getBitcomInstrument (
 }
 
 async function setBitcomInstrument (
-  obj: BitcomInstValues
+  obj: BitcomInstCacheValues
 ): Promise<void> {
 
   try {
     await redis.setex(
       `${bitcomInstrumentCachePrefix}${obj.instrumentID}`,
       bitcomInstrumentCacheExpirySecs,
+      JSON.stringify(obj)
+    );
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+}
+
+async function getDeribitTicker (
+  instrumentName: string
+): Promise<DeribitTickerCacheValues | undefined> {
+
+  try {
+    const result = await redis.get(`${deribitInstrumentCachePrefix}${instrumentName}`);
+
+    if (!result) return undefined;
+    return JSON.parse(result);
+  }
+  catch (err) {
+    throw err;
+  }
+}
+
+async function setDeribitTicker (
+  obj: DeribitTickerCacheValues
+): Promise<void> {
+
+  try {
+    await redis.setex(
+      `${deribitInstrumentCachePrefix}${obj.instrumentName}`,
+      deribitInstrumentCacheExpirySecs,
       JSON.stringify(obj)
     );
   }

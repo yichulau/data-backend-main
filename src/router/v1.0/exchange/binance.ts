@@ -8,6 +8,7 @@ import volumeNotional from "@controller/volumeNotional";
 import contractsTraded from "@controller/contractsTraded";
 import openInterest from "@controller/openInterest";
 import optionChart from "@controller/optionChart";
+import gamma from "@controller/gamma";
 
 import { EXCHANGE_ID } from "common";
 
@@ -26,5 +27,6 @@ router.get("/volume-notional", volumeNotional);
 router.get("/contracts-traded", contractsTraded);
 router.get("/open-interest", openInterest);
 router.get("/option-chart", optionChart);
+router.get("/gamma", gamma);
 
 export default router;

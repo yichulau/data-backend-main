@@ -11,7 +11,7 @@ const bitcom_1 = __importDefault(require("./api/bitcom.js"));
 const bybit_1 = __importDefault(require("./api/bybit.js"));
 const deribit_1 = __importDefault(require("./api/deribit.js"));
 const okex_2 = __importDefault(require("./api/okex.js"));
-const deleteExpiry_1 = __importDefault(require("./data/deleteExpiry.js"));
+const deleteOldData_1 = __importDefault(require("./data/deleteOldData.js"));
 const calcVolumePremium_1 = __importDefault(require("./data/calcVolumePremium.js"));
 const cronInterval = "0,30 */1 * * *";
 function default_1() {
@@ -27,7 +27,7 @@ async function _main() {
         const ethSpotValue = await _getSpotValue("ETH-USDT");
         const solSpotValue = await _getSpotValue("SOL-USDT");
         dbConn = await db_1.default.getConnection();
-        await (0, deleteExpiry_1.default)(dbConn);
+        await (0, deleteOldData_1.default)(dbConn);
         await (0, binance_1.default)(dbConn, nowSeconds, btcSpotValue, ethSpotValue);
         await (0, bitcom_1.default)(dbConn, nowSeconds, btcSpotValue, ethSpotValue);
         await (0, bybit_1.default)(dbConn, nowSeconds, btcSpotValue, ethSpotValue, solSpotValue);

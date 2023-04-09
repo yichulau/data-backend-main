@@ -11,7 +11,7 @@ import syncBybit from "./api/bybit";
 import syncDeribit from "./api/deribit";
 import syncOkex from "./api/okex";
 
-import deleteExpiry from "./data/deleteExpiry";
+import deleteOldData from "./data/deleteOldData";
 import calcPremiumVolume from "./data/calcVolumePremium";
 
 const cronInterval = "0,30 */1 * * *";
@@ -33,7 +33,7 @@ async function _main () {
 
     dbConn = await db.getConnection();
 
-    await deleteExpiry(dbConn);
+    await deleteOldData(dbConn);
 
     await syncBinance(dbConn, nowSeconds, btcSpotValue, ethSpotValue);
     await syncBitcom(dbConn, nowSeconds, btcSpotValue, ethSpotValue);

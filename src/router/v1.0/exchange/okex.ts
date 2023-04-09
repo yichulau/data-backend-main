@@ -9,6 +9,7 @@ import contractsTraded from "@controller/contractsTraded";
 import openInterest from "@controller/openInterest";
 import optionChart from "@controller/optionChart";
 import blockTrade from "@controller/blockTrade";
+import gamma from "@controller/gamma";
 
 import { EXCHANGE_ID } from "common";
 
@@ -28,5 +29,6 @@ router.get("/contracts-traded", contractsTraded);
 router.get("/open-interest", openInterest);
 router.get("/option-chart", optionChart);
 router.get("/block-trade", blockTrade);
+router.get("/gamma", gamma);
 
 export default router;

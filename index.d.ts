@@ -3,16 +3,40 @@ import { JwtPayload } from "jsonwebtoken";
 
 declare global {
   // for cache
-  type BinanceSymbolValues = {
+  type BinanceSymbolCacheValues = {
     symbol: string,
-    openInterest: number;
+    openInterest: number,
+    iv: number | null,
+    delta: number | null,
+    gamma: number | null
   };
 
   // for cache
-  type BitcomInstValues = {
+  type BitcomInstCacheValues = {
     instrumentID: string,
     openInterest: number,
-    tradingVolume: number;
+    tradingVolume: number,
+    lastPrice: number,
+    net: number,
+    bid: number,
+    ask: number,
+    vol: number,
+    iv: number,
+    delta: number,
+    gamma: number;
+  };
+
+  // for cache
+  type DeribitTickerCacheValues = {
+    instrumentName: string,
+    lastPrice: number,
+    net: number,
+    bid: number,
+    ask: number,
+    vol: number,
+    iv: number,
+    delta: number,
+    gamma: number;
   };
 
   interface ExpiryValues {
@@ -40,6 +64,33 @@ declare global {
     expiryList: string[],
     strikeList: number[];
   }
+
+  type ExpiryGammaData = {
+    strike: number,
+    callLastPrice?: number,
+    callNet?: number,
+    callBid?: number,
+    callAsk?: number,
+    callVol?: number,
+    callIV?: number,
+    callDelta?: number,
+    callGamma?: number,
+    callOpenInterest?: number,
+    putLastPrice?: number,
+    putNet?: number,
+    putBid?: number,
+    putAsk?: number,
+    putVol?: number,
+    putIV?: number,
+    putDelta?: number,
+    putGamma?: number,
+    putOpenInterest?: number;
+  };
+
+  type GammaData = {
+    expiry: string,
+    data: ExpiryGammaData[];
+  };
 
   interface IRequest extends Request {
     _reqTime?: number, // unix timestamp in ms
@@ -106,10 +157,6 @@ declare global {
     sumOpenInterest: string,
     sumOpenInterestUsd: string,
     timestamp: string;
-  }
-
-  interface BitcomInstrumentParams {
-    coinCurrency: "BTC" | "ETH";
   }
 
   interface BitcomInstrumentResult {
@@ -293,7 +340,7 @@ declare global {
     max_price: number,
     mark_price: number,
     mark_iv: number,
-    last_price: number,
+    last_price: number | null,
     interest_rate: number,
     instrument_name: string,
     index_price: number,

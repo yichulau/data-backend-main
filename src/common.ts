@@ -18,7 +18,10 @@ export const binanceSymbolCachePrefix = "binance-symbol:";
 export const binanceSymbolCacheExpirySecs = 43200; // 12 hours
 
 export const bitcomInstrumentCachePrefix = "bitcom-inst:";
-export const bitcomInstrumentCacheExpirySecs = 4320; // 12 hours
+export const bitcomInstrumentCacheExpirySecs = 43200; // 12 hours
+
+export const deribitInstrumentCachePrefix = "deribit-inst:";
+export const deribitInstrumentCacheExpirySecs = 43200; // 12 hours
 
 export const okexLastBlockTradeIDKey = "okex-lastrecvblocktradeid";
 
@@ -41,8 +44,8 @@ export const bybit = {
 
 export const bitcom = {
   wsURL: "wss://ws.bit.com",
-  instrumentURL: "https://api.bit.com/v1/instruments",
-  tickerURL: "https://api.bit.com/v1/tickers",
+  instrumentURL: "https://api.bit.com/linear/v1/instruments",
+  tickerURL: "https://api.bit.com/linear/v1/tickers",
   marketTradeURL: "https://api.bit.com/linear/v1/market/trades"
 };
 

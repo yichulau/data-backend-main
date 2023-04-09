@@ -11,6 +11,8 @@ exports.default = {
     setBinanceSymbol,
     getBitcomInstrument,
     setBitcomInstrument,
+    getDeribitTicker,
+    setDeribitTicker,
     getOkexLastBlockTradeID,
     setOkexLastBlockTradeID
 };
@@ -48,6 +50,26 @@ async function getBitcomInstrument(instrumentID) {
 async function setBitcomInstrument(obj) {
     try {
         await redis.setex(`${common_1.bitcomInstrumentCachePrefix}${obj.instrumentID}`, common_1.bitcomInstrumentCacheExpirySecs, JSON.stringify(obj));
+    }
+    catch (err) {
+        throw err;
+    }
+    return;
+}
+async function getDeribitTicker(instrumentName) {
+    try {
+        const result = await redis.get(`${common_1.deribitInstrumentCachePrefix}${instrumentName}`);
+        if (!result)
+            return undefined;
+        return JSON.parse(result);
+    }
+    catch (err) {
+        throw err;
+    }
+}
+async function setDeribitTicker(obj) {
+    try {
+        await redis.setex(`${common_1.deribitInstrumentCachePrefix}${obj.instrumentName}`, common_1.deribitInstrumentCacheExpirySecs, JSON.stringify(obj));
     }
     catch (err) {
         throw err;

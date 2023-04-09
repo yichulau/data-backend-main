@@ -193,7 +193,7 @@ async function _getBitcomInstrumentDetails (
   let instResult, tickerResult;
 
   try {
-    instResult = await bitcom.getInstruments({ coinCurrency });
+    instResult = await bitcom.getInstruments();
 
     tickerResult = await bitcom.getTicker({
       instrumentID: instrumentName
@@ -203,7 +203,10 @@ async function _getBitcomInstrumentDetails (
     throw err;
   }
 
-  const instDetails = instResult.find(i => i.instrument_id === instrumentName);
+  const instDetails = instResult
+    .filter(i => i.base_currency === coinCurrency)
+    .find(i => i.instrument_id === instrumentName);
+
   if (!instDetails) return null;
 
   return {
@@ -339,7 +342,7 @@ async function _getOkexInstrumentDetails (
     tickerResult = await okex.getTicker({ coinCurrencyPair });
     oiResult = await okex.getOpenInterest({ coinCurrencyPair });
     optSummaryResult = await okex.getOptionSummary({ coinCurrencyPair });
-    markPrice = await okex.getMarkPrice({ instrumentID: instrumentName })
+    markPrice = await okex.getMarkPrice({ instrumentID: instrumentName });
   }
   catch (err) {
     throw err;

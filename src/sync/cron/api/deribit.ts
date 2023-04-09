@@ -1,15 +1,19 @@
 import moment from "moment";
-import { eachSeries } from "async";
+import { each, eachSeries } from "async";
+import { v4 as uuidV4 } from "uuid";
 
+import cache from "@cache/cache";
 import DBConnection from "@database/conn";
 
 import { insert as insertVolumeNotional } from "@resource/volumeNotional";
 import { insert as insertOpenInterest } from "@resource/openInterest";
 import { insert as insertExpiryData } from "@resource/expiry";
+import { insert as insertGammaData } from "@resource/gamma";
 
 import {
   getBookSummaryByCurrency,
-  getInstruments
+  getInstruments,
+  getTicker
 } from "@service/deribit";
 
 import {
@@ -18,14 +22,22 @@ import {
   DATEFORMAT
 } from "../../../common";
 
-type DeribitOIAndNVValue = {
+type DeribitSyncValue = {
   coinCurrencyID: number,
   callOrPut: "C" | "P",
   instrumentName: string,
   expiry: string,
   strike: number,
   tradingVolume?: number,
-  openInterest?: number;
+  openInterest?: number,
+  lastPrice?: number,
+  net?: number,
+  bid?: number,
+  ask?: number,
+  vol?: number,
+  iv?: number,
+  delta?: number,
+  gamma?: number;
 };
 
 export default async function (
@@ -37,20 +49,25 @@ export default async function (
 
   const startTime = Date.now();
 
-  let oiAndNvValueArr: DeribitOIAndNVValue[] = [];
+  let valueArr: DeribitSyncValue[] = [];
 
   try {
-    await _assignStrikeAndExpiry(oiAndNvValueArr);
-    await _assignOIAndVolume(oiAndNvValueArr, btcSpotValue, ethSpotValue);
+    const instruments = await _getInstruments();
 
-    await _insertExpiryData(conn, oiAndNvValueArr, syncTime);
+    _assignStrikeAndExpiry(instruments, valueArr);
+    await _assignRawOIAndVolume(valueArr);
+    await _assignGammaValues(valueArr, btcSpotValue, ethSpotValue);
+
+    await _insertGammaData(conn, valueArr, syncTime);
 
     const {
       btcOpenInterestSum,
       ethOpenInterestSum,
       btcNotionalVolume,
       ethNotionalVolume
-    } = _getOIAndNVSum(oiAndNvValueArr);
+    } = _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue);
+
+    await _insertExpiryData(conn, valueArr, syncTime);
 
     await _insertNotionalVolume(conn, CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
     await _insertNotionalVolume(conn, CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
@@ -69,25 +86,29 @@ export default async function (
   return;
 }
 
-async function _assignStrikeAndExpiry (
-  oiAndNvValueArr: DeribitOIAndNVValue[]
-): Promise<void> {
+async function _getInstruments (
+): Promise<DeribitInstrumentsResult[]> {
 
-  let btcResult: DeribitInstrumentsResult[] = [];
-  let ethResult: DeribitInstrumentsResult[] = [];
-  let combinedResults: DeribitInstrumentsResult[] = [];
+  let btcInstruments: DeribitInstrumentsResult[];
+  let ethInstruments: DeribitInstrumentsResult[];
 
   try {
-    btcResult = await getInstruments({ coinCurrency: "BTC" });
-    ethResult = await getInstruments({ coinCurrency: "ETH" });
+    btcInstruments = await getInstruments({ coinCurrency: "BTC" });
+    ethInstruments = await getInstruments({ coinCurrency: "ETH" });
   }
   catch (err) {
     throw err;
   }
 
-  combinedResults = [...btcResult, ...ethResult];
+  return [...btcInstruments, ...ethInstruments];
+}
 
-  combinedResults.forEach(item => {
+function _assignStrikeAndExpiry (
+  instruments: DeribitInstrumentsResult[],
+  valueArr: DeribitSyncValue[]
+): void {
+
+  instruments.forEach(item => {
     let coinCurrencyID = 0;
     const callOrPut = <"C" | "P">item.instrument_name.slice(-1);
     const expiry = moment(item.expiration_timestamp).format(DATEFORMAT);
@@ -99,7 +120,7 @@ async function _assignStrikeAndExpiry (
       coinCurrencyID = CURRENCY_ID.ETH;
     }
 
-    oiAndNvValueArr.push({
+    valueArr.push({
       coinCurrencyID,
       callOrPut,
       instrumentName: item.instrument_name,
@@ -111,10 +132,8 @@ async function _assignStrikeAndExpiry (
   return;
 }
 
-async function _assignOIAndVolume (
-  oiAndNvValueArr: DeribitOIAndNVValue[],
-  btcSpotValue: number,
-  ethSpotValue: number
+async function _assignRawOIAndVolume (
+  valueArr: DeribitSyncValue[],
 ): Promise<void> {
 
   let btcResult: DeribitBookSummaryResult[] = [];
@@ -132,25 +151,133 @@ async function _assignOIAndVolume (
   combinedResults = [...btcResult, ...ethResult];
 
   combinedResults.forEach(item => {
-    const value = <DeribitOIAndNVValue>oiAndNvValueArr.find(i => {
+    const value = <DeribitSyncValue>valueArr.find(i => {
       return i.instrumentName === item.instrument_name;
     });
 
     if (item.base_currency === "BTC") {
-      value.tradingVolume = item.volume * btcSpotValue;
-      value.openInterest = item.open_interest * btcSpotValue;
+      value.tradingVolume = item.volume;
+      value.openInterest = item.open_interest;
     }
     else if (item.base_currency === "ETH") {
-      value.tradingVolume = item.volume * ethSpotValue;
-      value.openInterest = item.open_interest * ethSpotValue;
+      value.tradingVolume = item.volume;
+      value.openInterest = item.open_interest;
     }
   });
 
   return;
 }
 
+async function _assignGammaValues (
+  valueArr: DeribitSyncValue[],
+  btcSpotValue: number,
+  ethSpotValue: number
+): Promise<void> {
+
+  // const btcSpotUpperBound = btcSpotValue * 1.55;
+  // const btcSpotLowerBound = btcSpotValue * 0.5;
+  // const ethSpotUpperBound = ethSpotValue * 1.55;
+  // const ethSpotLowerBound = ethSpotValue * 0.5;
+
+  // for (const idx in valueArr) {
+  //   if (
+  //     valueArr[idx].coinCurrencyID === CURRENCY_ID.BTC
+  //     &&
+  //     (valueArr[idx].strike > btcSpotUpperBound || valueArr[idx].strike < btcSpotLowerBound)
+  //   ) {
+  //     valueArr.splice(Number(idx), 1);
+  //   }
+  //   else if (
+  //     valueArr[idx].coinCurrencyID === CURRENCY_ID.ETH
+  //     &&
+  //     (valueArr[idx].strike > ethSpotUpperBound || valueArr[idx].strike < ethSpotLowerBound)
+  //   ) {
+  //     valueArr.splice(Number(idx), 1);
+  //   }
+  // }
+
+  try {
+    await each(valueArr, _iterate);
+  }
+  catch (err) {
+    throw err;
+  }
+  return;
+
+  async function _iterate (i: DeribitSyncValue): Promise<void> {
+    let tickerResult;
+    const instrumentName = i.instrumentName;
+
+    try {
+      const existing = await cache.getDeribitTicker(instrumentName);
+
+      if (existing) {
+        i.lastPrice = existing.lastPrice;
+        i.net = existing.net;
+        i.bid = existing.bid;
+        i.ask = existing.ask;
+        i.vol = existing.vol;
+        i.iv = existing.iv;
+        i.delta = existing.delta;
+        i.gamma = existing.gamma;
+
+        return;
+      }
+    }
+    catch (err) {
+      console.log("deribit cache error");
+      console.error(err);
+    }
+
+    do {
+      try {
+        tickerResult = await getTicker({ instrumentName });
+      }
+      catch (err: any) {
+        if (err.response?.status !== 429) {
+          throw err;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    while (typeof tickerResult === "undefined");
+
+    i.lastPrice = tickerResult.last_price || 0;
+    i.net = tickerResult.stats.price_change || 0;
+    i.bid = tickerResult.best_bid_price;
+    i.ask = tickerResult.best_ask_price;
+    i.vol = tickerResult.stats.volume || 0;
+    i.iv = tickerResult.mark_iv;
+    i.delta = tickerResult.greeks.delta;
+    i.gamma = tickerResult.greeks.gamma;
+
+    try {
+      await cache.setDeribitTicker({
+        instrumentName,
+        lastPrice: i.lastPrice,
+        net: i.net,
+        bid: i.bid,
+        ask: i.ask,
+        vol: i.vol,
+        iv: i.iv,
+        delta: i.delta,
+        gamma: i.gamma
+      });
+    }
+    catch (err) {
+      console.log("deribit cache error");
+      console.error(err);
+    }
+
+    return;
+  }
+}
+
 function _getOIAndNVSum (
-  oiAndNvValueArr: DeribitOIAndNVValue[]
+  valueArr: DeribitSyncValue[],
+  btcSpotValue: number,
+  ethSpotValue: number
 ): {
   btcOpenInterestSum: number,
   ethOpenInterestSum: number,
@@ -163,17 +290,20 @@ function _getOIAndNVSum (
   let btcNotionalVolume = 0;
   let ethNotionalVolume = 0;
 
-  oiAndNvValueArr.forEach(item => {
-    const OI = <number>item.openInterest;
-    const vol = <number>item.tradingVolume;
-
+  valueArr.forEach(item => {
     if (item.coinCurrencyID === CURRENCY_ID.BTC) {
-      btcOpenInterestSum += OI;
-      btcNotionalVolume += vol;
+      item.openInterest = <number>item.openInterest * btcSpotValue;
+      item.tradingVolume = <number>item.tradingVolume * btcSpotValue;
+
+      btcOpenInterestSum += item.openInterest;
+      btcNotionalVolume += item.tradingVolume;
     }
     else if (item.coinCurrencyID === CURRENCY_ID.ETH) {
-      ethOpenInterestSum += OI;
-      ethNotionalVolume += vol;
+      item.openInterest = <number>item.openInterest * ethSpotValue;
+      item.tradingVolume = <number>item.tradingVolume * ethSpotValue;
+
+      ethOpenInterestSum += item.openInterest;
+      ethNotionalVolume += item.tradingVolume;
     }
   });
 
@@ -185,14 +315,14 @@ function _getOIAndNVSum (
   };
 }
 
-async function _insertExpiryData (
+async function _insertGammaData (
   conn: DBConnection,
-  oiAndNvValueArr: DeribitOIAndNVValue[],
+  valueArr: DeribitSyncValue[],
   timestamp: number
 ): Promise<void> {
 
   try {
-    await eachSeries(oiAndNvValueArr, _iterateInsert);
+    await eachSeries(valueArr, _iterateInsert);
   }
   catch (err) {
     throw err;
@@ -200,7 +330,52 @@ async function _insertExpiryData (
 
   return;
 
-  async function _iterateInsert (item: DeribitOIAndNVValue): Promise<void> {
+  async function _iterateInsert (item: DeribitSyncValue): Promise<void> {
+    try {
+      await insertGammaData(
+        conn,
+        EXCHANGE_ID.DERIBIT,
+        uuidV4(),
+        item.coinCurrencyID,
+        timestamp,
+        item.expiry,
+        item.strike,
+        item.callOrPut,
+        <number>item.lastPrice,
+        <number>item.net,
+        <number>item.bid,
+        <number>item.ask,
+        <number>item.vol,
+        <number>item.tradingVolume,
+        <number>item.delta,
+        <number>item.gamma,
+        <number>item.openInterest
+      );
+    }
+    catch (err) {
+      throw err;
+    }
+
+    return;
+  }
+}
+
+async function _insertExpiryData (
+  conn: DBConnection,
+  valueArr: DeribitSyncValue[],
+  timestamp: number
+): Promise<void> {
+
+  try {
+    await eachSeries(valueArr, _iterateInsert);
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+
+  async function _iterateInsert (item: DeribitSyncValue): Promise<void> {
     try {
       await insertExpiryData(
         conn,

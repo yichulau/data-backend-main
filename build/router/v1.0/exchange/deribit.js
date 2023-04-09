@@ -12,6 +12,7 @@ const contractsTraded_1 = __importDefault(require("../../../controller/contracts
 const openInterest_1 = __importDefault(require("../../../controller/openInterest.js"));
 const optionChart_1 = __importDefault(require("../../../controller/optionChart.js"));
 const blockTrade_1 = __importDefault(require("../../../controller/blockTrade.js"));
+const gamma_1 = __importDefault(require("../../../controller/gamma.js"));
 const common_1 = require("../../../common.js");
 const router = (0, express_1.Router)();
 router.use((req, res, next) => {
@@ -26,4 +27,5 @@ router.get("/contracts-traded", contractsTraded_1.default);
 router.get("/open-interest", openInterest_1.default);
 router.get("/option-chart", optionChart_1.default);
 router.get("/block-trade", blockTrade_1.default);
+router.get("/gamma", gamma_1.default);
 exports.default = router;

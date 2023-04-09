@@ -3,14 +3,13 @@ import axios from "axios";
 import { bitcom } from "common";
 
 export async function getInstruments (
-  params: BitcomInstrumentParams
 ): Promise<BitcomInstrumentResult[]> {
   try {
     const { data } = await axios({
       method: "get",
       url: bitcom.instrumentURL,
       params: {
-        currency: params.coinCurrency,
+        currency: "USD",
         category: "option",
         active: "true"
       }

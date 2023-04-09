@@ -69,13 +69,17 @@ async function _getBinanceSymbols(coinCurrency) {
     return symbols;
 }
 async function _getBitcomInstruments(coinCurrency) {
+    let result;
     try {
-        const result = await (0, bitcom_1.getInstruments)({ coinCurrency });
-        return result.map(i => i.instrument_id);
+        result = await (0, bitcom_1.getInstruments)();
     }
     catch (err) {
         throw err;
     }
+    result = result
+        .filter(i => i.base_currency === coinCurrency)
+        .map(i => i.instrument_id);
+    return result;
 }
 async function _getBybitSymbols(coinCurrency) {
     try {

@@ -5,9 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const moment_1 = __importDefault(require("moment"));
 const async_1 = require("async");
+const uuid_1 = require("uuid");
 const volumeNotional_1 = require("../../../resource/volumeNotional.js");
 const openInterest_1 = require("../../../resource/openInterest.js");
 const expiry_1 = require("../../../resource/expiry.js");
+const gamma_1 = require("../../../resource/gamma.js");
 const bybit_1 = require("../../../service/bybit.js");
 const common_1 = require("../../../common.js");
 async function default_1(conn, syncTime, btcSpotValue, ethSpotValue, solSpotValue) {
@@ -18,9 +20,10 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue, solSpotValu
         const ethTickers = await _getTickers("ETH");
         const solTickers = await _getTickers("SOL");
         const allTickers = [...btcTickers, ...ethTickers, ...solTickers];
-        _assignValues(allTickers, valueArr, btcSpotValue, ethSpotValue, solSpotValue);
+        _assignValues(allTickers, valueArr);
+        await _insertGammaData(conn, valueArr, syncTime);
+        const { btcOpenInterestSum, ethOpenInterestSum, solOpenInterestSum, btcNotionalVolume, ethNotionalVolume, solNotionalVolume } = _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue, solSpotValue);
         await _insertExpiryData(conn, valueArr, syncTime);
-        const { btcOpenInterestSum, ethOpenInterestSum, solOpenInterestSum, btcNotionalVolume, ethNotionalVolume, solNotionalVolume } = _getOIAndNVSum(valueArr);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.SOL, syncTime, solNotionalVolume);
@@ -46,28 +49,23 @@ async function _getTickers(coinCurrency) {
         throw err;
     }
 }
-function _assignValues(tickers, valueArr, btcSpotValue, ethSpotValue, solSpotValue) {
+function _assignValues(tickers, valueArr) {
     tickers.forEach(item => {
         let coinCurrencyID = 0;
-        let openInterest = 0;
         const symbol = item.symbol;
         const symbolSplit = symbol.split("-");
-        const coinCurrency = symbolSplit[0];
         const callOrPut = symbolSplit[3];
         const expiry = (0, moment_1.default)(symbolSplit[1], "DDMMMYYYY").format(common_1.DATEFORMAT);
         const strike = Number(symbolSplit[2]);
-        switch (coinCurrency) {
+        switch (item.symbol.substring(0, 3)) {
             case "BTC":
                 coinCurrencyID = common_1.CURRENCY_ID.BTC;
-                openInterest = Number(item.openInterest) * btcSpotValue;
                 break;
             case "ETH":
                 coinCurrencyID = common_1.CURRENCY_ID.ETH;
-                openInterest = Number(item.openInterest) * ethSpotValue;
                 break;
             case "SOL":
                 coinCurrencyID = common_1.CURRENCY_ID.SOL;
-                openInterest = Number(item.openInterest) * solSpotValue;
                 break;
         }
         valueArr.push({
@@ -77,12 +75,20 @@ function _assignValues(tickers, valueArr, btcSpotValue, ethSpotValue, solSpotVal
             expiry,
             strike,
             tradingVolume: Number(item.turnover24h),
-            openInterest
+            openInterest: Number(item.openInterest),
+            lastPrice: Number(item.lastPrice),
+            net: Number(item.change24h),
+            bid: Number(item.bid1Price),
+            ask: Number(item.ask1Price),
+            vol: Number(item.volume24h),
+            iv: Number(item.markIv),
+            delta: Number(item.delta),
+            gamma: Number(item.gamma)
         });
     });
     return;
 }
-function _getOIAndNVSum(valueArr) {
+function _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue, solSpotValue) {
     let btcOpenInterestSum = 0;
     let ethOpenInterestSum = 0;
     let solOpenInterestSum = 0;
@@ -90,19 +96,20 @@ function _getOIAndNVSum(valueArr) {
     let ethNotionalVolume = 0;
     let solNotionalVolume = 0;
     valueArr.forEach(item => {
-        const OI = item.openInterest;
-        const vol = item.tradingVolume;
         if (item.coinCurrencyID === common_1.CURRENCY_ID.BTC) {
-            btcOpenInterestSum += OI;
-            btcNotionalVolume += vol;
+            item.openInterest *= btcSpotValue;
+            btcOpenInterestSum += item.openInterest;
+            btcNotionalVolume += item.tradingVolume;
         }
         else if (item.coinCurrencyID === common_1.CURRENCY_ID.ETH) {
-            ethOpenInterestSum += OI;
-            ethNotionalVolume += vol;
+            item.openInterest *= ethSpotValue;
+            ethOpenInterestSum += item.openInterest;
+            ethNotionalVolume += item.tradingVolume;
         }
         else if (item.coinCurrencyID === common_1.CURRENCY_ID.SOL) {
-            solOpenInterestSum += OI;
-            solNotionalVolume += vol;
+            item.openInterest *= solSpotValue;
+            solOpenInterestSum += item.openInterest;
+            solNotionalVolume += item.tradingVolume;
         }
     });
     return {
@@ -125,6 +132,24 @@ async function _insertExpiryData(conn, valueArr, timestamp) {
     async function _iterateInsert(item) {
         try {
             await (0, expiry_1.insert)(conn, common_1.EXCHANGE_ID.BYBIT, item.coinCurrencyID, timestamp, item.expiry, item.strike, item.callOrPut, item.tradingVolume, item.openInterest);
+        }
+        catch (err) {
+            throw err;
+        }
+        return;
+    }
+}
+async function _insertGammaData(conn, valueArr, timestamp) {
+    try {
+        await (0, async_1.eachSeries)(valueArr, _iterateInsert);
+    }
+    catch (err) {
+        throw err;
+    }
+    return;
+    async function _iterateInsert(item) {
+        try {
+            await (0, gamma_1.insert)(conn, common_1.EXCHANGE_ID.BYBIT, (0, uuid_1.v4)(), item.coinCurrencyID, timestamp, item.expiry, item.strike, item.callOrPut, item.lastPrice, item.net, item.bid, item.ask, item.vol, item.iv, item.delta, item.gamma, item.openInterest);
         }
         catch (err) {
             throw err;

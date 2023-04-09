@@ -83,13 +83,20 @@ async function _getBitcomInstruments (
   coinCurrency: "BTC" | "ETH"
 ): Promise<string[]> {
 
+  let result;
+
   try {
-    const result = await getBitcomInstruments({ coinCurrency });
-    return result.map(i => i.instrument_id);
+    result = await getBitcomInstruments();
   }
   catch (err) {
     throw err;
   }
+
+  result = result
+    .filter(i => i.base_currency === coinCurrency)
+    .map(i => i.instrument_id);
+
+  return result;
 }
 
 async function _getBybitSymbols (

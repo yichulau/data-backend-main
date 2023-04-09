@@ -1,11 +1,13 @@
 import moment from "moment";
 import { eachSeries } from "async";
+import { v4 as uuidV4 } from "uuid";
 
 import DBConnection from "@database/conn";
 
 import { insert as insertVolumeNotional } from "@resource/volumeNotional";
 import { insert as insertOpenInterest } from "@resource/openInterest";
 import { insert as insertExpiryData } from "@resource/expiry";
+import { insert as insertGammaData } from "@resource/gamma";
 
 import { getTicker } from "@service/bybit";
 
@@ -22,7 +24,15 @@ type BybitSyncValue = {
   expiry: string,
   strike: number,
   tradingVolume: number,
-  openInterest: number;
+  openInterest: number,
+  lastPrice: number,
+  net: number,
+  bid: number,
+  ask: number,
+  vol: number,
+  iv: number,
+  delta: number,
+  gamma: number;
 };
 
 export default async function (
@@ -43,10 +53,10 @@ export default async function (
     const solTickers = await _getTickers("SOL");
     const allTickers = [...btcTickers, ...ethTickers, ...solTickers];
 
-    _assignValues(allTickers, valueArr, btcSpotValue, ethSpotValue, solSpotValue);
+    _assignValues(allTickers, valueArr);
 
-    await _insertExpiryData(conn, valueArr, syncTime);
-
+    await _insertGammaData(conn, valueArr, syncTime);
+    
     const {
       btcOpenInterestSum,
       ethOpenInterestSum,
@@ -54,7 +64,9 @@ export default async function (
       btcNotionalVolume,
       ethNotionalVolume,
       solNotionalVolume
-    } = _getOIAndNVSum(valueArr);
+    } = _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue, solSpotValue);
+    
+    await _insertExpiryData(conn, valueArr, syncTime);
 
     await _insertNotionalVolume(conn, CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
     await _insertNotionalVolume(conn, CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
@@ -90,39 +102,23 @@ async function _getTickers (
 
 function _assignValues (
   tickers: BybitTickerResult[],
-  valueArr: BybitSyncValue[],
-  btcSpotValue: number,
-  ethSpotValue: number,
-  solSpotValue: number
+  valueArr: BybitSyncValue[]
 ): void {
 
   tickers.forEach(item => {
     let coinCurrencyID = 0;
-    let openInterest = 0;
 
     const symbol = item.symbol;
     const symbolSplit = symbol.split("-");
 
-    const coinCurrency = <"BTC" | "ETH" | "SOL">symbolSplit[0];
     const callOrPut = <"C" | "P">symbolSplit[3];
     const expiry = moment(symbolSplit[1], "DDMMMYYYY").format(DATEFORMAT);
     const strike = Number(symbolSplit[2]);
 
-    switch (coinCurrency) {
-      case "BTC":
-        coinCurrencyID = CURRENCY_ID.BTC;
-        openInterest = Number(item.openInterest) * btcSpotValue;
-        break;
-
-      case "ETH":
-        coinCurrencyID = CURRENCY_ID.ETH;
-        openInterest = Number(item.openInterest) * ethSpotValue;
-        break;
-
-      case "SOL":
-        coinCurrencyID = CURRENCY_ID.SOL;
-        openInterest = Number(item.openInterest) * solSpotValue;
-        break;
+    switch (item.symbol.substring(0, 3)) {
+      case "BTC": coinCurrencyID = CURRENCY_ID.BTC; break;
+      case "ETH": coinCurrencyID = CURRENCY_ID.ETH; break;
+      case "SOL": coinCurrencyID = CURRENCY_ID.SOL; break;
     }
 
     valueArr.push({
@@ -132,7 +128,15 @@ function _assignValues (
       expiry,
       strike,
       tradingVolume: Number(item.turnover24h),
-      openInterest
+      openInterest: Number(item.openInterest),
+      lastPrice: Number(item.lastPrice),
+      net: Number(item.change24h),
+      bid: Number(item.bid1Price),
+      ask: Number(item.ask1Price),
+      vol: Number(item.volume24h),
+      iv: Number(item.markIv),
+      delta: Number(item.delta),
+      gamma: Number(item.gamma)
     });
   });
 
@@ -140,7 +144,10 @@ function _assignValues (
 }
 
 function _getOIAndNVSum (
-  valueArr: BybitSyncValue[]
+  valueArr: BybitSyncValue[],
+  btcSpotValue: number,
+  ethSpotValue: number,
+  solSpotValue: number
 ): {
   btcOpenInterestSum: number,
   ethOpenInterestSum: number,
@@ -158,20 +165,23 @@ function _getOIAndNVSum (
   let solNotionalVolume = 0;
 
   valueArr.forEach(item => {
-    const OI = item.openInterest;
-    const vol = item.tradingVolume;
-
     if (item.coinCurrencyID === CURRENCY_ID.BTC) {
-      btcOpenInterestSum += OI;
-      btcNotionalVolume += vol;
+      item.openInterest *= btcSpotValue;
+
+      btcOpenInterestSum += item.openInterest;
+      btcNotionalVolume += item.tradingVolume;
     }
     else if (item.coinCurrencyID === CURRENCY_ID.ETH) {
-      ethOpenInterestSum += OI;
-      ethNotionalVolume += vol;
+      item.openInterest *= ethSpotValue;
+
+      ethOpenInterestSum += item.openInterest;
+      ethNotionalVolume += item.tradingVolume;
     }
     else if (item.coinCurrencyID === CURRENCY_ID.SOL) {
-      solOpenInterestSum += OI;
-      solNotionalVolume += vol;
+      item.openInterest *= solSpotValue;
+
+      solOpenInterestSum += item.openInterest;
+      solNotionalVolume += item.tradingVolume;
     }
   });
 
@@ -211,6 +221,51 @@ async function _insertExpiryData (
         item.strike,
         item.callOrPut,
         item.tradingVolume,
+        item.openInterest
+      );
+    }
+    catch (err) {
+      throw err;
+    }
+
+    return;
+  }
+}
+
+async function _insertGammaData (
+  conn: DBConnection,
+  valueArr: BybitSyncValue[],
+  timestamp: number
+): Promise<void> {
+
+  try {
+    await eachSeries(valueArr, _iterateInsert);
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+
+  async function _iterateInsert (item: BybitSyncValue): Promise<void> {
+    try {
+      await insertGammaData(
+        conn,
+        EXCHANGE_ID.BYBIT,
+        uuidV4(),
+        item.coinCurrencyID,
+        timestamp,
+        item.expiry,
+        item.strike,
+        item.callOrPut,
+        item.lastPrice,
+        item.net,
+        item.bid,
+        item.ask,
+        item.vol,
+        item.iv,
+        item.delta,
+        item.gamma,
         item.openInterest
       );
     }

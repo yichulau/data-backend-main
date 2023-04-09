@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dbPoolConfig = exports.okex = exports.deribit = exports.bitcom = exports.bybit = exports.binance = exports.okexLastBlockTradeIDKey = exports.bitcomInstrumentCacheExpirySecs = exports.bitcomInstrumentCachePrefix = exports.binanceSymbolCacheExpirySecs = exports.binanceSymbolCachePrefix = exports.DATEFORMAT = exports.EXCHANGE_ID = exports.CURRENCY_ID = void 0;
+exports.dbPoolConfig = exports.okex = exports.deribit = exports.bitcom = exports.bybit = exports.binance = exports.okexLastBlockTradeIDKey = exports.deribitInstrumentCacheExpirySecs = exports.deribitInstrumentCachePrefix = exports.bitcomInstrumentCacheExpirySecs = exports.bitcomInstrumentCachePrefix = exports.binanceSymbolCacheExpirySecs = exports.binanceSymbolCachePrefix = exports.DATEFORMAT = exports.EXCHANGE_ID = exports.CURRENCY_ID = void 0;
 exports.CURRENCY_ID = {
     BTC: 1,
     ETH: 2,
@@ -17,7 +17,9 @@ exports.DATEFORMAT = "YYYY-MM-DD";
 exports.binanceSymbolCachePrefix = "binance-symbol:";
 exports.binanceSymbolCacheExpirySecs = 43200;
 exports.bitcomInstrumentCachePrefix = "bitcom-inst:";
-exports.bitcomInstrumentCacheExpirySecs = 4320;
+exports.bitcomInstrumentCacheExpirySecs = 43200;
+exports.deribitInstrumentCachePrefix = "deribit-inst:";
+exports.deribitInstrumentCacheExpirySecs = 43200;
 exports.okexLastBlockTradeIDKey = "okex-lastrecvblocktradeid";
 exports.binance = {
     wsURL: "wss://nbstream.binance.com/eoptions/stream",
@@ -36,8 +38,8 @@ exports.bybit = {
 };
 exports.bitcom = {
     wsURL: "wss://ws.bit.com",
-    instrumentURL: "https://api.bit.com/v1/instruments",
-    tickerURL: "https://api.bit.com/v1/tickers",
+    instrumentURL: "https://api.bit.com/linear/v1/instruments",
+    tickerURL: "https://api.bit.com/linear/v1/tickers",
     marketTradeURL: "https://api.bit.com/linear/v1/market/trades"
 };
 exports.deribit = {

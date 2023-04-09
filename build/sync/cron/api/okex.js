@@ -11,20 +11,21 @@ const volumeNotional_1 = require("../../../resource/volumeNotional.js");
 const openInterest_1 = require("../../../resource/openInterest.js");
 const expiry_1 = require("../../../resource/expiry.js");
 const blockTrade_1 = require("../../../resource/blockTrade.js");
+const gamma_1 = require("../../../resource/gamma.js");
 const okex_1 = require("../../../service/okex.js");
 const common_1 = require("../../../common.js");
 async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     const startTime = Date.now();
-    let oiAndNvValueArr = [];
+    let instValueArr = [];
     let btValueArr = [];
     try {
-        const btcTickers = await _getTickers("BTC-USD");
-        const ethTickers = await _getTickers("ETH-USD");
-        const allTickers = [...btcTickers, ...ethTickers];
-        _assignNVValues(allTickers, oiAndNvValueArr, btcSpotValue, ethSpotValue);
-        await _assignOI(oiAndNvValueArr, btcSpotValue, ethSpotValue);
-        await _insertExpiryData(conn, oiAndNvValueArr, syncTime);
-        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(oiAndNvValueArr);
+        const tickers = await _getTickers();
+        _assignNVValues(tickers, instValueArr, btcSpotValue, ethSpotValue);
+        await _assignRawOI(instValueArr);
+        await _assignGammaValues(tickers, instValueArr);
+        await _insertGammaData(conn, instValueArr, syncTime);
+        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(instValueArr, btcSpotValue, ethSpotValue);
+        await _insertExpiryData(conn, instValueArr, syncTime);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.BTC, syncTime, btcNotionalVolume);
         await _insertNotionalVolume(conn, common_1.CURRENCY_ID.ETH, syncTime, ethNotionalVolume);
         await _insertOpenInterest(conn, common_1.CURRENCY_ID.BTC, syncTime, btcOpenInterestSum);
@@ -42,16 +43,19 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     return;
 }
 exports.default = default_1;
-async function _getTickers(coinCurrencyPair) {
+async function _getTickers() {
+    let btcResult;
+    let ethResult;
     try {
-        const result = await (0, okex_1.getTicker)({ coinCurrencyPair });
-        return result;
+        btcResult = await (0, okex_1.getTicker)({ coinCurrencyPair: "BTC-USD" });
+        ethResult = await (0, okex_1.getTicker)({ coinCurrencyPair: "ETH-USD" });
     }
     catch (err) {
         throw err;
     }
+    return [...btcResult, ...ethResult];
 }
-function _assignNVValues(tickers, oiAndNvValueArr, btcSpotValue, ethSpotValue) {
+function _assignNVValues(tickers, instValueArr, btcSpotValue, ethSpotValue) {
     tickers.forEach(item => {
         const symbol = item.instId;
         const symbolSplit = symbol.split("-");
@@ -60,7 +64,7 @@ function _assignNVValues(tickers, oiAndNvValueArr, btcSpotValue, ethSpotValue) {
         const expiry = (0, moment_1.default)(symbolSplit[2], "YYMMDD").format(common_1.DATEFORMAT);
         const strike = Number(symbolSplit[3]);
         if (coinCurrency === "BTC") {
-            oiAndNvValueArr.push({
+            instValueArr.push({
                 coinCurrencyID: common_1.CURRENCY_ID.BTC,
                 callOrPut,
                 symbol,
@@ -70,7 +74,7 @@ function _assignNVValues(tickers, oiAndNvValueArr, btcSpotValue, ethSpotValue) {
             });
         }
         else if (coinCurrency === "ETH") {
-            oiAndNvValueArr.push({
+            instValueArr.push({
                 coinCurrencyID: common_1.CURRENCY_ID.ETH,
                 callOrPut,
                 symbol,
@@ -82,7 +86,7 @@ function _assignNVValues(tickers, oiAndNvValueArr, btcSpotValue, ethSpotValue) {
     });
     return;
 }
-async function _assignOI(oiAndNvValueArr, btcSpotValue, ethSpotValue) {
+async function _assignRawOI(instValueArr) {
     let btcResult = [];
     let ethResult = [];
     let combinedResults = [];
@@ -95,36 +99,58 @@ async function _assignOI(oiAndNvValueArr, btcSpotValue, ethSpotValue) {
     }
     combinedResults = [...btcResult, ...ethResult];
     combinedResults.forEach(item => {
-        const value = oiAndNvValueArr.find(i => {
-            return i.symbol === item.instId;
-        });
-        if (!value)
+        const val = instValueArr.find(i => i.symbol === item.instId);
+        if (!val)
             return;
-        const coinCurrency = item.instId.slice(0, 3);
-        if (coinCurrency === "BTC") {
-            value.openInterest = Number(item.oiCcy) * btcSpotValue;
-        }
-        else {
-            value.openInterest = Number(item.oiCcy) * ethSpotValue;
-        }
+        val.openInterest = Number(item.oiCcy);
     });
     return;
 }
-function _getOIAndNVSum(oiAndNvValueArr) {
+async function _assignGammaValues(tickers, instValueArr) {
+    let btcOptSummary;
+    let ethOptSummary;
+    let allOptSummary;
+    try {
+        btcOptSummary = await (0, okex_1.getOptionSummary)({ coinCurrencyPair: "BTC-USD" });
+        ethOptSummary = await (0, okex_1.getOptionSummary)({ coinCurrencyPair: "ETH-USD" });
+    }
+    catch (err) {
+        throw err;
+    }
+    allOptSummary = [...btcOptSummary, ...ethOptSummary];
+    instValueArr.forEach(item => {
+        const ticker = tickers.find(i => {
+            return i.instId === item.symbol;
+        });
+        const optSummary = allOptSummary.find(i => {
+            return i.instId === item.symbol;
+        });
+        item.lastPrice = Number(ticker.last);
+        item.net = 0;
+        item.bid = Number(ticker.bidPx);
+        item.ask = Number(ticker.askPx);
+        item.vol = Number(ticker.vol24h);
+        item.iv = Number(optSummary?.markVol) || 0;
+        item.delta = Number(optSummary?.deltaBS) || 0;
+        item.gamma = Number(optSummary?.gammaBS) || 0;
+    });
+    return;
+}
+function _getOIAndNVSum(instValueArr, btcSpotValue, ethSpotValue) {
     let btcOpenInterestSum = 0;
     let ethOpenInterestSum = 0;
     let btcNotionalVolume = 0;
     let ethNotionalVolume = 0;
-    oiAndNvValueArr.forEach(item => {
-        const OI = item.openInterest;
-        const vol = item.tradingVolume;
+    instValueArr.forEach(item => {
         if (item.coinCurrencyID === common_1.CURRENCY_ID.BTC) {
-            btcOpenInterestSum += OI;
-            btcNotionalVolume += vol;
+            item.openInterest = item.openInterest * btcSpotValue;
+            btcOpenInterestSum += item.openInterest;
+            btcNotionalVolume += item.tradingVolume;
         }
         else if (item.coinCurrencyID === common_1.CURRENCY_ID.ETH) {
-            ethOpenInterestSum += OI;
-            ethNotionalVolume += vol;
+            item.openInterest = item.openInterest * ethSpotValue;
+            ethOpenInterestSum += item.openInterest;
+            ethNotionalVolume += item.tradingVolume;
         }
     });
     return {
@@ -163,9 +189,27 @@ function _assignBTValues(blockTrades, btValueArr) {
     });
     return;
 }
-async function _insertExpiryData(conn, oiAndNvValueArr, timestamp) {
+async function _insertGammaData(conn, instValueArr, timestamp) {
     try {
-        await (0, async_1.eachSeries)(oiAndNvValueArr, _iterateInsert);
+        await (0, async_1.eachSeries)(instValueArr, _iterateInsert);
+    }
+    catch (err) {
+        throw err;
+    }
+    return;
+    async function _iterateInsert(item) {
+        try {
+            await (0, gamma_1.insert)(conn, common_1.EXCHANGE_ID.OKEX, (0, uuid_1.v4)(), item.coinCurrencyID, timestamp, item.expiry, item.strike, item.callOrPut, item.lastPrice, item.net, item.bid, item.ask, item.vol, item.iv, item.delta, item.gamma, item.openInterest);
+        }
+        catch (err) {
+            throw err;
+        }
+        return;
+    }
+}
+async function _insertExpiryData(conn, instValueArr, timestamp) {
+    try {
+        await (0, async_1.eachSeries)(instValueArr, _iterateInsert);
     }
     catch (err) {
         throw err;

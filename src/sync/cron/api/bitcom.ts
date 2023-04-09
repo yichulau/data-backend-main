@@ -1,5 +1,5 @@
 import moment from "moment";
-import { eachSeries } from "async";
+import { each, eachSeries } from "async";
 import { v4 as uuidV4 } from "uuid";
 
 import cache from "@cache/cache";
@@ -9,6 +9,7 @@ import { insert as insertVolumeNotional } from "@resource/volumeNotional";
 import { insert as insertOpenInterest } from "@resource/openInterest";
 import { insert as insertExpiryData } from "@resource/expiry";
 import { insertBitcomBlockTrade } from "@resource/blockTrade";
+import { insert as insertGammaData } from "@resource/gamma";
 
 import {
   getInstruments,
@@ -23,13 +24,22 @@ import {
 } from "../../../common";
 
 type BitcomSyncValue = {
+  existsInCache: boolean,
   coinCurrencyID: number,
   callOrPut: "C" | "P",
   instrumentID: string,
   expiry: string,
   strike: number,
   tradingVolume?: number,
-  openInterest?: number;
+  openInterest?: number,
+  lastPrice?: number,
+  net?: number,
+  bid?: number,
+  ask?: number,
+  vol?: number,
+  iv?: number,
+  delta?: number,
+  gamma?: number;
 };
 
 type BitcomBlockTradeValue = {
@@ -58,21 +68,21 @@ export default async function (
   let btValueArr: BitcomBlockTradeValue[] = [];
 
   try {
-    const btcInstruments = await _getInstruments("BTC");
-    const ethInstruments = await _getInstruments("ETH");
-    const allInstruments = [...btcInstruments, ...ethInstruments];
+    const allInstruments = await _getInstruments();
 
     _assignStrikeAndExpiry(allInstruments, valueArr);
-    await _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue);
+    await _assignOIAndVolume(valueArr);
 
-    await _insertExpiryData(conn, valueArr, syncTime);
+    await _insertGammaData(conn, valueArr, syncTime);
 
     const {
       btcOpenInterestSum,
       ethOpenInterestSum,
       btcNotionalVolume,
       ethNotionalVolume
-    } = _getOIAndNVSum(valueArr);
+    } = _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue);
+
+    await _insertExpiryData(conn, valueArr, syncTime);
 
     const marketTrades = await _getMarketTrades();
     _assignBTValues(marketTrades, btValueArr);
@@ -97,16 +107,22 @@ export default async function (
 }
 
 async function _getInstruments (
-  coinCurrency: "BTC" | "ETH"
 ): Promise<BitcomInstrumentResult[]> {
 
+  let result: BitcomInstrumentResult[];
+
   try {
-    const result = await getInstruments({ coinCurrency });
-    return result;
+    result = await getInstruments();
   }
   catch (err) {
     throw err;
   }
+
+  result = result.filter(i => {
+    return i.base_currency === "BTC" || i.base_currency === "ETH";
+  });
+
+  return result;
 }
 
 function _assignStrikeAndExpiry (
@@ -127,6 +143,7 @@ function _assignStrikeAndExpiry (
     }
 
     valueArr.push({
+      existsInCache: false,
       coinCurrencyID,
       callOrPut,
       instrumentID: item.instrument_id,
@@ -137,13 +154,11 @@ function _assignStrikeAndExpiry (
 }
 
 async function _assignOIAndVolume (
-  valueArr: BitcomSyncValue[],
-  btcSpotValue: number,
-  ethSpotValue: number
+  valueArr: BitcomSyncValue[]
 ): Promise<void> {
 
   try {
-    await eachSeries(valueArr, _iterate);
+    await each(valueArr, _iterate);
   }
   catch (err) {
     throw err;
@@ -151,16 +166,27 @@ async function _assignOIAndVolume (
 
   return;
 
-  async function _iterate (i: BitcomSyncValue): Promise<void> {
-    let tickerResult, openInterest, tradingVolume;
-    const instrumentID = i.instrumentID;
+  async function _iterate (item: BitcomSyncValue): Promise<void> {
+    let tickerResult;
+    const instrumentID = item.instrumentID;
 
     try {
+      // open interest and trading volume values in cache are raw values
       const existing = await cache.getBitcomInstrument(instrumentID);
 
       if (existing) {
-        i.openInterest = existing.openInterest;
-        i.tradingVolume = existing.tradingVolume;
+        item.existsInCache = true;
+        item.openInterest = existing.openInterest;
+        item.tradingVolume = existing.tradingVolume;
+        item.lastPrice = existing.lastPrice;
+        item.net = existing.net;
+        item.bid = existing.bid;
+        item.ask = existing.ask;
+        item.vol = existing.vol;
+        item.iv = existing.iv;
+        item.delta = existing.delta;
+        item.gamma = existing.gamma;
+
         return;
       }
     }
@@ -183,43 +209,35 @@ async function _assignOIAndVolume (
     }
     while (typeof tickerResult === "undefined");
 
-    if (i.coinCurrencyID === CURRENCY_ID.BTC) {
-      openInterest = Number(tickerResult.open_interest) * btcSpotValue;
-      tradingVolume = Number(tickerResult.volume24h) * btcSpotValue;
+    item.openInterest = Number(tickerResult.open_interest);
+    item.tradingVolume = Number(tickerResult.volume24h);
+    item.lastPrice = Number(tickerResult.last_price);
+    item.net = Number(tickerResult.price_change24h);
+    item.bid = Number(tickerResult.best_bid);
+    item.ask = Number(tickerResult.best_ask);
+    item.vol = Number(tickerResult.volume24h);
+    item.iv = Number(tickerResult.sigma);
+    item.delta = Number(tickerResult.delta);
+    item.gamma = Number(tickerResult.gamma);
 
-      i.openInterest = openInterest;
-      i.tradingVolume = tradingVolume;
-
-      try {
-        await cache.setBitcomInstrument({
-          instrumentID,
-          openInterest,
-          tradingVolume
-        });
-      }
-      catch (err) {
-        console.log("bit.com cache error");
-        console.error(err);
-      }
+    try {
+      await cache.setBitcomInstrument({
+        instrumentID: item.instrumentID,
+        openInterest: <number>item.openInterest,
+        tradingVolume: <number>item.tradingVolume,
+        lastPrice: <number>item.lastPrice,
+        net: <number>item.net,
+        bid: <number>item.bid,
+        ask: <number>item.ask,
+        vol: <number>item.vol,
+        iv: <number>item.iv,
+        delta: <number>item.delta,
+        gamma: <number>item.gamma
+      });
     }
-    else if (i.coinCurrencyID === CURRENCY_ID.ETH) {
-      openInterest = Number(tickerResult.open_interest) * ethSpotValue;
-      tradingVolume = Number(tickerResult.volume24h) * ethSpotValue;
-
-      i.openInterest = openInterest;
-      i.tradingVolume = tradingVolume;
-
-      try {
-        await cache.setBitcomInstrument({
-          instrumentID,
-          openInterest,
-          tradingVolume
-        });
-      }
-      catch (err) {
-        console.log("bit.com cache error");
-        console.error(err);
-      }
+    catch (err) {
+      console.log("bit.com cache error");
+      console.error(err);
     }
 
     return;
@@ -227,7 +245,9 @@ async function _assignOIAndVolume (
 }
 
 function _getOIAndNVSum (
-  valueArr: BitcomSyncValue[]
+  valueArr: BitcomSyncValue[],
+  btcSpotValue: number,
+  ethSpotValue: number
 ): {
   btcOpenInterestSum: number,
   ethOpenInterestSum: number,
@@ -241,16 +261,13 @@ function _getOIAndNVSum (
   let ethNotionalVolume = 0;
 
   valueArr.forEach(item => {
-    const OI = <number>item.openInterest;
-    const vol = <number>item.tradingVolume;
-
     if (item.coinCurrencyID === CURRENCY_ID.BTC) {
-      btcOpenInterestSum += OI;
-      btcNotionalVolume += vol;
+      btcOpenInterestSum += <number>item.openInterest * btcSpotValue;
+      btcNotionalVolume += <number>item.tradingVolume * btcSpotValue;
     }
     else if (item.coinCurrencyID === CURRENCY_ID.ETH) {
-      ethOpenInterestSum += OI;
-      ethNotionalVolume += vol;
+      ethOpenInterestSum += <number>item.openInterest * ethSpotValue;
+      ethNotionalVolume += <number>item.tradingVolume * ethSpotValue;
     }
   });
 
@@ -302,6 +319,51 @@ function _assignBTValues (
   });
 
   return;
+}
+
+async function _insertGammaData (
+  conn: DBConnection,
+  valueArr: BitcomSyncValue[],
+  timestamp: number
+): Promise<void> {
+
+  try {
+    await eachSeries(valueArr, _iterateInsert);
+  }
+  catch (err) {
+    throw err;
+  }
+
+  return;
+
+  async function _iterateInsert (item: BitcomSyncValue): Promise<void> {
+    try {
+      await insertGammaData(
+        conn,
+        EXCHANGE_ID.BITCOM,
+        uuidV4(),
+        item.coinCurrencyID,
+        timestamp,
+        item.expiry,
+        item.strike,
+        item.callOrPut,
+        <number>item.lastPrice,
+        <number>item.net,
+        <number>item.bid,
+        <number>item.ask,
+        <number>item.vol,
+        <number>item.iv,
+        <number>item.delta,
+        <number>item.gamma,
+        <number>item.openInterest
+      );
+    }
+    catch (err) {
+      throw err;
+    }
+
+    return;
+  }
 }
 
 async function _insertExpiryData (

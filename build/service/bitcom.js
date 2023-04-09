@@ -6,13 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMarketTrades = exports.getTicker = exports.getInstruments = void 0;
 const axios_1 = __importDefault(require("axios"));
 const common_1 = require("../common.js");
-async function getInstruments(params) {
+async function getInstruments() {
     try {
         const { data } = await (0, axios_1.default)({
             method: "get",
             url: common_1.bitcom.instrumentURL,
             params: {
-                currency: params.coinCurrency,
+                currency: "USD",
                 category: "option",
                 active: "true"
             }

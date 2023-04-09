@@ -11,6 +11,7 @@ const volumeNotional_1 = require("../../../resource/volumeNotional.js");
 const openInterest_1 = require("../../../resource/openInterest.js");
 const expiry_1 = require("../../../resource/expiry.js");
 const blockTrade_1 = require("../../../resource/blockTrade.js");
+const gamma_1 = require("../../../resource/gamma.js");
 const bitcom_1 = require("../../../service/bitcom.js");
 const common_1 = require("../../../common.js");
 async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
@@ -18,13 +19,12 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     let valueArr = [];
     let btValueArr = [];
     try {
-        const btcInstruments = await _getInstruments("BTC");
-        const ethInstruments = await _getInstruments("ETH");
-        const allInstruments = [...btcInstruments, ...ethInstruments];
+        const allInstruments = await _getInstruments();
         _assignStrikeAndExpiry(allInstruments, valueArr);
-        await _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue);
+        await _assignOIAndVolume(valueArr);
+        await _insertGammaData(conn, valueArr, syncTime);
+        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue);
         await _insertExpiryData(conn, valueArr, syncTime);
-        const { btcOpenInterestSum, ethOpenInterestSum, btcNotionalVolume, ethNotionalVolume } = _getOIAndNVSum(valueArr);
         const marketTrades = await _getMarketTrades();
         _assignBTValues(marketTrades, btValueArr);
         await _insertBlockTradeData(conn, btValueArr);
@@ -42,14 +42,18 @@ async function default_1(conn, syncTime, btcSpotValue, ethSpotValue) {
     return;
 }
 exports.default = default_1;
-async function _getInstruments(coinCurrency) {
+async function _getInstruments() {
+    let result;
     try {
-        const result = await (0, bitcom_1.getInstruments)({ coinCurrency });
-        return result;
+        result = await (0, bitcom_1.getInstruments)();
     }
     catch (err) {
         throw err;
     }
+    result = result.filter(i => {
+        return i.base_currency === "BTC" || i.base_currency === "ETH";
+    });
+    return result;
 }
 function _assignStrikeAndExpiry(instruments, valueArr) {
     instruments.forEach(item => {
@@ -63,6 +67,7 @@ function _assignStrikeAndExpiry(instruments, valueArr) {
             coinCurrencyID = common_1.CURRENCY_ID.ETH;
         }
         valueArr.push({
+            existsInCache: false,
             coinCurrencyID,
             callOrPut,
             instrumentID: item.instrument_id,
@@ -71,22 +76,31 @@ function _assignStrikeAndExpiry(instruments, valueArr) {
         });
     });
 }
-async function _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue) {
+async function _assignOIAndVolume(valueArr) {
     try {
-        await (0, async_1.eachSeries)(valueArr, _iterate);
+        await (0, async_1.each)(valueArr, _iterate);
     }
     catch (err) {
         throw err;
     }
     return;
-    async function _iterate(i) {
-        let tickerResult, openInterest, tradingVolume;
-        const instrumentID = i.instrumentID;
+    async function _iterate(item) {
+        let tickerResult;
+        const instrumentID = item.instrumentID;
         try {
             const existing = await cache_1.default.getBitcomInstrument(instrumentID);
             if (existing) {
-                i.openInterest = existing.openInterest;
-                i.tradingVolume = existing.tradingVolume;
+                item.existsInCache = true;
+                item.openInterest = existing.openInterest;
+                item.tradingVolume = existing.tradingVolume;
+                item.lastPrice = existing.lastPrice;
+                item.net = existing.net;
+                item.bid = existing.bid;
+                item.ask = existing.ask;
+                item.vol = existing.vol;
+                item.iv = existing.iv;
+                item.delta = existing.delta;
+                item.gamma = existing.gamma;
                 return;
             }
         }
@@ -105,58 +119,51 @@ async function _assignOIAndVolume(valueArr, btcSpotValue, ethSpotValue) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         } while (typeof tickerResult === "undefined");
-        if (i.coinCurrencyID === common_1.CURRENCY_ID.BTC) {
-            openInterest = Number(tickerResult.open_interest) * btcSpotValue;
-            tradingVolume = Number(tickerResult.volume24h) * btcSpotValue;
-            i.openInterest = openInterest;
-            i.tradingVolume = tradingVolume;
-            try {
-                await cache_1.default.setBitcomInstrument({
-                    instrumentID,
-                    openInterest,
-                    tradingVolume
-                });
-            }
-            catch (err) {
-                console.log("bit.com cache error");
-                console.error(err);
-            }
+        item.openInterest = Number(tickerResult.open_interest);
+        item.tradingVolume = Number(tickerResult.volume24h);
+        item.lastPrice = Number(tickerResult.last_price);
+        item.net = Number(tickerResult.price_change24h);
+        item.bid = Number(tickerResult.best_bid);
+        item.ask = Number(tickerResult.best_ask);
+        item.vol = Number(tickerResult.volume24h);
+        item.iv = Number(tickerResult.sigma);
+        item.delta = Number(tickerResult.delta);
+        item.gamma = Number(tickerResult.gamma);
+        try {
+            await cache_1.default.setBitcomInstrument({
+                instrumentID: item.instrumentID,
+                openInterest: item.openInterest,
+                tradingVolume: item.tradingVolume,
+                lastPrice: item.lastPrice,
+                net: item.net,
+                bid: item.bid,
+                ask: item.ask,
+                vol: item.vol,
+                iv: item.iv,
+                delta: item.delta,
+                gamma: item.gamma
+            });
         }
-        else if (i.coinCurrencyID === common_1.CURRENCY_ID.ETH) {
-            openInterest = Number(tickerResult.open_interest) * ethSpotValue;
-            tradingVolume = Number(tickerResult.volume24h) * ethSpotValue;
-            i.openInterest = openInterest;
-            i.tradingVolume = tradingVolume;
-            try {
-                await cache_1.default.setBitcomInstrument({
-                    instrumentID,
-                    openInterest,
-                    tradingVolume
-                });
-            }
-            catch (err) {
-                console.log("bit.com cache error");
-                console.error(err);
-            }
+        catch (err) {
+            console.log("bit.com cache error");
+            console.error(err);
         }
         return;
     }
 }
-function _getOIAndNVSum(valueArr) {
+function _getOIAndNVSum(valueArr, btcSpotValue, ethSpotValue) {
     let btcOpenInterestSum = 0;
     let ethOpenInterestSum = 0;
     let btcNotionalVolume = 0;
     let ethNotionalVolume = 0;
     valueArr.forEach(item => {
-        const OI = item.openInterest;
-        const vol = item.tradingVolume;
         if (item.coinCurrencyID === common_1.CURRENCY_ID.BTC) {
-            btcOpenInterestSum += OI;
-            btcNotionalVolume += vol;
+            btcOpenInterestSum += item.openInterest * btcSpotValue;
+            btcNotionalVolume += item.tradingVolume * btcSpotValue;
         }
         else if (item.coinCurrencyID === common_1.CURRENCY_ID.ETH) {
-            ethOpenInterestSum += OI;
-            ethNotionalVolume += vol;
+            ethOpenInterestSum += item.openInterest * ethSpotValue;
+            ethNotionalVolume += item.tradingVolume * ethSpotValue;
         }
     });
     return {
@@ -196,6 +203,24 @@ function _assignBTValues(marketTrades, btValueArr) {
         }
     });
     return;
+}
+async function _insertGammaData(conn, valueArr, timestamp) {
+    try {
+        await (0, async_1.eachSeries)(valueArr, _iterateInsert);
+    }
+    catch (err) {
+        throw err;
+    }
+    return;
+    async function _iterateInsert(item) {
+        try {
+            await (0, gamma_1.insert)(conn, common_1.EXCHANGE_ID.BITCOM, (0, uuid_1.v4)(), item.coinCurrencyID, timestamp, item.expiry, item.strike, item.callOrPut, item.lastPrice, item.net, item.bid, item.ask, item.vol, item.iv, item.delta, item.gamma, item.openInterest);
+        }
+        catch (err) {
+            throw err;
+        }
+        return;
+    }
 }
 async function _insertExpiryData(conn, valueArr, timestamp) {
     try {
