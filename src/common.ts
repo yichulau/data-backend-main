@@ -68,6 +68,14 @@ export const okex = {
   blockTradeURL: "https://www.okx.com/api/v5/rfq/public-trades"
 };
 
+// sample new exchange
+// export const newExchange = {
+  // wsURL: "wss://{new_exchange}:8443/webscoket", 
+  // instrumentURL: "https://{new_exchange}/v1/instruments",
+  // tickerURL: "https://{new_exchange}/v1/tickers"
+// }
+
+
 export const dbPoolConfig = {
   multipleStatements: false,
   host: process.env.DB_HOST,

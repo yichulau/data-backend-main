@@ -15,22 +15,30 @@ export default async function (req: IRequest, res: IResponse, next: INextFunctio
   const coinCurrencyID = <number>req._coinCurrencyID;
   const exchangeID = req._exchangeID;
 
+  const duration = req.query.duration;
+
+  if (duration !== "24hour" && duration !== "6hour") {
+    return next({
+      status: 400
+    });
+  }
+
   try {
     switch (exchangeID) {
       case EXCHANGE_ID.BITCOM:
-        result = await getRecentBitcomBlockTrades(null, "6hour", coinCurrencyID);
+        result = await getRecentBitcomBlockTrades(null, duration, coinCurrencyID);
         break;
 
       case EXCHANGE_ID.BYBIT:
-        result = await getRecentBybitBlockTrades(null, "6hour", coinCurrencyID);
+        result = await getRecentBybitBlockTrades(null, duration, coinCurrencyID);
         break;
 
       case EXCHANGE_ID.DERIBIT:
-        result = await getRecentDeribitBlockTrades(null, "6hour", coinCurrencyID);
+        result = await getRecentDeribitBlockTrades(null, duration, coinCurrencyID);
         break;
 
       case EXCHANGE_ID.OKEX:
-        result = await getRecentOkexBlockTrades(null, "6hour", coinCurrencyID);
+        result = await getRecentOkexBlockTrades(null, duration, coinCurrencyID);
         break;
     }
   }

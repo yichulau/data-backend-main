@@ -3,7 +3,7 @@ import DBConnection from "@database/conn";
 
 export async function getRecentBitcomBlockTrades (
   conn: DBConnection | null,
-  duration: "6hour" | "1second",
+  duration: "24hour" | "6hour" | "1second",
   coinCurrencyID?: number
 ): Promise<any[]> {
 
@@ -34,8 +34,10 @@ export async function getRecentBitcomBlockTrades (
     query += "coinCurrencyID = ? AND ";
     data.push(coinCurrencyID);
   }
-
-  if (duration === "6hour") {
+  if (duration === "24hour") {
+    query += "tradeTime >= NOW() - INTERVAL 24 HOUR;";
+  }
+  else if (duration === "6hour") {
     query += "tradeTime >= NOW() - INTERVAL 6 HOUR;";
   }
   else {
@@ -63,7 +65,7 @@ export async function getRecentBitcomBlockTrades (
 
 export async function getRecentBybitBlockTrades (
   conn: DBConnection | null,
-  duration: "6hour" | "1second",
+  duration: "24hour" | "6hour" | "1second",
   coinCurrencyID?: number
 ): Promise<any[]> {
 
@@ -93,7 +95,10 @@ export async function getRecentBybitBlockTrades (
     data.push(coinCurrencyID);
   }
 
-  if (duration === "6hour") {
+  if (duration === "24hour") {
+    query += "tradeTime >= NOW() - INTERVAL 24 HOUR;";
+  }
+  else if (duration === "6hour") {
     query += "tradeTime >= NOW() - INTERVAL 6 HOUR;";
   }
   else {
@@ -121,7 +126,7 @@ export async function getRecentBybitBlockTrades (
 
 export async function getRecentDeribitBlockTrades (
   conn: DBConnection | null,
-  duration: "6hour" | "1second",
+  duration: "24hour" | "6hour" | "1second",
   coinCurrencyID?: number
 ): Promise<any[]> {
 
@@ -153,7 +158,10 @@ export async function getRecentDeribitBlockTrades (
     data.push(coinCurrencyID);
   }
 
-  if (duration === "6hour") {
+  if (duration === "24hour") {
+    query += "tradeTime >= NOW() - INTERVAL 24 HOUR;";
+  }
+  else if (duration === "6hour") {
     query += "tradeTime >= NOW() - INTERVAL 6 HOUR;";
   }
   else {
@@ -181,7 +189,7 @@ export async function getRecentDeribitBlockTrades (
 
 export async function getRecentOkexBlockTrades (
   conn: DBConnection | null,
-  duration: "6hour" | "1second",
+  duration: "24hour" | "6hour" | "1second",
   coinCurrencyID?: number
 ): Promise<any[]> {
 
@@ -210,7 +218,10 @@ export async function getRecentOkexBlockTrades (
     data.push(coinCurrencyID);
   }
 
-  if (duration === "6hour") {
+  if (duration === "24hour") {
+    query += "tradeTime >= NOW() - INTERVAL 24 HOUR;";
+  }
+  else if (duration === "6hour") {
     query += "tradeTime >= NOW() - INTERVAL 6 HOUR;";
   }
   else {

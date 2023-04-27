@@ -27,9 +27,11 @@ async function _main () {
   let dbConn: DBConnection | undefined;
 
   try {
-    const btcSpotValue = await _getSpotValue("BTC-USDT");
-    const ethSpotValue = await _getSpotValue("ETH-USDT");
-    const solSpotValue = await _getSpotValue("SOL-USDT");
+    const [btcSpotValue, ethSpotValue, solSpotValue] = await Promise.all([
+      _getSpotValue("BTC-USDT"),
+      _getSpotValue("ETH-USDT"),
+      _getSpotValue("SOL-USDT")
+    ]);
 
     dbConn = await db.getConnection();
 
